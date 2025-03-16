@@ -3,27 +3,32 @@
 	"type": "module",
 	"version": "0.0.1",
 	"scripts": {
-		"dev": "bunx --bun astro dev",
+		"dev": "kill-port 4321 && bunx --bun astro dev --port 4321",
 		"build": "bunx --bun astro build",
 		"preview": "bunx --bun astro preview",
 		"astro": "bunx --bun astro",
 		"check": "biome check",
-		"check:fix": "biome check --write"
+		"check:fix": "biome check --write",
+		"start": "bun run ./dist/server/entry.mjs"
 	},
 	"dependencies": {
 		"@astrojs/svelte": "^7.0.6",
 		"@tailwindcss/vite": "^4.0.14",
 		"astro": "^5.5.2",
+		"astro-bun-websocket": "^1.0.3",
 		"svelte": "^5.23.0",
 		"tailwindcss": "^4.0.14",
 		"tone": "^15.0.4",
 		"typescript": "^5.8.2"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "1.9.4"
+		"@biomejs/biome": "1.9.4",
+		"@types/bun": "1.2.5",
+		"cross-port-killer": "^1.4.0"
 	},
 	"trustedDependencies": ["core-js"],
 	"patchedDependencies": {
-		"tone@15.0.4": "patches/tone@15.0.4.patch"
+		"tone@15.0.4": "patches/tone@15.0.4.patch",
+		"astro-bun-websocket@1.0.3": "patches/astro-bun-websocket@1.0.3.patch"
 	}
 }

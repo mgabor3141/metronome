@@ -26,9 +26,10 @@ export type PartialMetronomeState = {
  */
 import MetronomeUI from "./MetronomeUI.svelte"
 import MetronomeAudio from "./MetronomeAudio.svelte"
+import MetronomeNetwork from "./MetronomeNetwork.svelte"
 
 // State object that contains all state values
-let metronomeState = $state.raw<MetronomeState>({
+const metronomeState = $state<MetronomeState>({
 	bpm: 120,
 	timeSignature: {
 		beatsPerMeasure: 4,
@@ -46,13 +47,19 @@ const playbackState = $state({
  * Takes a partial state object and merges it with the current state
  */
 const updateState = (partialState: PartialMetronomeState): void => {
-	metronomeState = {
-		...metronomeState,
-		...partialState,
-		timeSignature: {
-			...metronomeState.timeSignature,
-			...partialState.timeSignature,
-		},
+	// Update the state properties
+	if (partialState.bpm !== undefined) {
+		metronomeState.bpm = partialState.bpm;
+	}
+	
+	if (partialState.timeSignature) {
+		if (partialState.timeSignature.beatsPerMeasure !== undefined) {
+			metronomeState.timeSignature.beatsPerMeasure = partialState.timeSignature.beatsPerMeasure;
+		}
+		
+		if (partialState.timeSignature.beatUnit !== undefined) {
+			metronomeState.timeSignature.beatUnit = partialState.timeSignature.beatUnit;
+		}
 	}
 }
 
@@ -60,7 +67,20 @@ const updateState = (partialState: PartialMetronomeState): void => {
  * Toggle the playing state of the metronome
  */
 const togglePlayback = (): void => {
-	playbackState.isPlaying = !playbackState.isPlaying
+	playbackState.isPlaying = !playbackState.isPlaying;
+}
+
+/**
+ * Handle remote state updates from other clients via WebSocket
+ */
+const handleRemoteStateUpdate = (remoteState: MetronomeState, isPlaying: boolean): void => {
+	// Update local state to match remote state
+	metronomeState.bpm = remoteState.bpm;
+	metronomeState.timeSignature.beatsPerMeasure = remoteState.timeSignature.beatsPerMeasure;
+	metronomeState.timeSignature.beatUnit = remoteState.timeSignature.beatUnit;
+	
+	// Update playback state
+	playbackState.isPlaying = isPlaying;
 }
 </script>
 
@@ -76,4 +96,11 @@ const togglePlayback = (): void => {
 <MetronomeAudio 
 	state={metronomeState}
 	isPlaying={playbackState.isPlaying}
+/>
+
+<!-- Network component for WebSocket connections (no UI) -->
+<MetronomeNetwork
+	state={metronomeState}
+	isPlaying={playbackState.isPlaying}
+	onRemoteStateUpdate={handleRemoteStateUpdate}
 />

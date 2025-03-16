@@ -1,0 +1,16 @@
+diff --git a/node_modules/astro-bun-websocket/.bun-tag-195f3cbdceed1fe5 b/.bun-tag-195f3cbdceed1fe5
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts b/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts
+index fe5540c0440259e8ac3399faceea712d76c6f9da..90ed4def38d2e9e0deb82bd82066a6a83486bb19 100644
+--- a/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts
++++ b/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts
+@@ -145,7 +145,7 @@ function init(standard: WebSocket, ws: ws.WebSocket) {
+         standard.dispatchEvent(event)
+     })
+     ws.on("message", function onMessage(data, isBinary) {
+-        const event = new MessageEvent("message", { data: isBinary ? data : data.toString(), })
++        const event = new MessageEvent("message", { data: isBinary || data instanceof Blob ? data : data.toString(), })
+         standard.onmessage?.(event)
+         standard.dispatchEvent(event)
+     })

@@ -38,7 +38,3 @@
 
 # Package Management
 - Use `bun` as the package manager.
-
-# Running the App
-- The app is running and available at this address: http://localhost:4321/
-- The server is running in watch mode, so changes are be visible immediately.
