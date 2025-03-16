@@ -2,21 +2,22 @@
 /**
  * Interface for the metronome state
  */
+export interface TimeSignature {
+	beatsPerMeasure: number
+	beatUnit: number
+}
+
 export interface MetronomeState {
 	bpm: number
-	timeSignature: {
-		beatsPerMeasure: number
-		beatUnit: number
-	}
+	timeSignature: TimeSignature
 }
 
 /**
  * Type for partial state updates
  */
-export type PartialMetronomeState = {
-	bpm?: number
-	timeSignature?: Partial<MetronomeState["timeSignature"]>
-}
+import type { DeepPartial } from "../utils/object-utils"
+export type PartialTimeSignature = DeepPartial<TimeSignature>
+export type PartialMetronomeState = DeepPartial<MetronomeState>
 </script>
 
 <script lang="ts">
@@ -27,9 +28,10 @@ export type PartialMetronomeState = {
 import MetronomeUI from "./MetronomeUI.svelte"
 import MetronomeAudio from "./MetronomeAudio.svelte"
 import MetronomeNetwork from "./MetronomeNetwork.svelte"
+import { deepMergeIfChanged } from "../utils/object-utils"
 
 // State object that contains all state values
-const metronomeState = $state<MetronomeState>({
+let metronomeState = $state.raw<MetronomeState>({
 	bpm: 120,
 	timeSignature: {
 		beatsPerMeasure: 4,
@@ -37,9 +39,12 @@ const metronomeState = $state<MetronomeState>({
 	},
 })
 
-// Playing state
-const playbackState = $state({
-	isPlaying: false
+// Playback state
+interface PlaybackState {
+	isPlaying: boolean
+}
+const playbackState = $state<PlaybackState>({
+	isPlaying: false,
 })
 
 /**
@@ -47,20 +52,8 @@ const playbackState = $state({
  * Takes a partial state object and merges it with the current state
  */
 const updateState = (partialState: PartialMetronomeState): void => {
-	// Update the state properties
-	if (partialState.bpm !== undefined) {
-		metronomeState.bpm = partialState.bpm;
-	}
-	
-	if (partialState.timeSignature) {
-		if (partialState.timeSignature.beatsPerMeasure !== undefined) {
-			metronomeState.timeSignature.beatsPerMeasure = partialState.timeSignature.beatsPerMeasure;
-		}
-		
-		if (partialState.timeSignature.beatUnit !== undefined) {
-			metronomeState.timeSignature.beatUnit = partialState.timeSignature.beatUnit;
-		}
-	}
+	// Update the state only if there are actual changes
+	metronomeState = deepMergeIfChanged(metronomeState, partialState)
 }
 
 /**
@@ -74,10 +67,8 @@ const togglePlayback = (): void => {
  * Handle remote state updates from other clients via WebSocket
  */
 const handleRemoteStateUpdate = (remoteState: MetronomeState, isPlaying: boolean): void => {
-	// Update local state to match remote state
-	metronomeState.bpm = remoteState.bpm;
-	metronomeState.timeSignature.beatsPerMeasure = remoteState.timeSignature.beatsPerMeasure;
-	metronomeState.timeSignature.beatUnit = remoteState.timeSignature.beatUnit;
+	// Update local state to match remote state, only if there are changes
+	metronomeState = deepMergeIfChanged(metronomeState, remoteState)
 	
 	// Update playback state
 	playbackState.isPlaying = isPlaying;
