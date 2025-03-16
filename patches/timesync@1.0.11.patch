@@ -1,0 +1,14 @@
+diff --git a/node_modules/timesync/.bun-tag-ad67ee47f3ed4f9d b/.bun-tag-ad67ee47f3ed4f9d
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/lib/Promise.js b/lib/Promise.js
+index 90ea4333b0ff5cf82b0f3826987df2b08066416d..ce245c937379d09b6d944c83dac77f3ace2af811 100644
+--- a/lib/Promise.js
++++ b/lib/Promise.js
+@@ -1,3 +1,3 @@
+ "use strict";
+ 
+-module.exports = typeof window === 'undefined' || typeof window.Promise === 'undefined' ? require('promise') : window.Promise;
+\ No newline at end of file
++module.exports = Promise
+\ No newline at end of file

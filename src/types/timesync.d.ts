@@ -1,29 +1,26 @@
-declare module 'timesync' {
-  interface TimeSyncOptions {
-    server?: string;
-    peers?: string[];
-    delay?: number;
-    interval?: number;
-    timeout?: number;
-    repeat?: number;
-    now?: () => number;
-  }
+declare module "timesync" {
+	export interface TimeSyncOptions {
+		server?: string
+		peers?: string[]
+		delay?: number
+		interval?: number
+		timeout?: number
+		repeat?: number
+		now?: () => number
+	}
 
-  interface TimeSyncInstance {
-    now(): number;
-    sync(): void;
-    destroy(): void;
-    on(event: string, callback: (data: any) => void): TimeSyncInstance;
-    off(event: string, callback?: (data: any) => void): TimeSyncInstance;
-    send(to: string, data: any, timeout?: number): Promise<any>;
-    receive(from: string, data: any): void;
-    readonly offset: number;
-  }
+	export interface TimeSyncInstance {
+		now(): number
+		sync(): void
+		destroy(): void
+		on(event: string, callback: (data: unknown) => void): TimeSyncInstance
+		off(event: string, callback?: (data: unknown) => void): TimeSyncInstance
+		send(to: string, data: unknown, timeout?: number): Promise<unknown>
+		receive(from: string, data: unknown): void
+		readonly offset: number
+	}
 
-  interface TimeSyncStatic {
-    create(options?: TimeSyncOptions): TimeSyncInstance;
-  }
+	// The main export is a function that creates a TimeSyncInstance
 
-  const timesync: TimeSyncStatic;
-  export default timesync;
+	export function create(options?: TimeSyncOptions): TimeSyncInstance
 }

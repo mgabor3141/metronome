@@ -10,6 +10,7 @@
         "astro-bun-websocket": "^1.0.3",
         "svelte": "^5.23.0",
         "tailwindcss": "^4.0.14",
+        "timesync": "^1.0.11",
         "tone": "^15.0.4",
         "typescript": "^5.8.2",
       },
@@ -23,6 +24,7 @@
   "patchedDependencies": {
     "astro-bun-websocket@1.0.3": "patches/astro-bun-websocket@1.0.3.patch",
     "tone@15.0.4": "patches/tone@15.0.4.patch",
+    "timesync@1.0.11": "patches/timesync@1.0.11.patch",
   },
   "packages": {
     "@ampproject/remapping": ["@ampproject/remapping@2.3.0", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw=="],
@@ -708,6 +710,8 @@
     "tailwindcss": ["tailwindcss@4.0.14", "", {}, "sha512-92YT2dpt671tFiHH/e1ok9D987N9fHD5VWoly1CdPD/Cd1HMglvZwP3nx2yTj2lbXDAHt8QssZkxTLCCTNL+xw=="],
 
     "tapable": ["tapable@2.2.1", "", {}, "sha512-GNzQvQTOIP6RyTfE2Qxb8ZVlNmw0n88vp1szwWRimP02mnTsx3Wtn5qRdqY9w2XduFNUgvOwhNnQsjwCp+kqaQ=="],
+
+    "timesync": ["timesync@1.0.11", "", { "dependencies": { "debug": "^4.3.4" } }, "sha512-qT2Y/qAQAeQTa/M+Dteec+76vsUAbY1TQQtXBVTuNMHBkKflT2uLnqG8T+V7eK7CADhwRq+2Etmj5df9VOpkNQ=="],
 
     "tinyexec": ["tinyexec@0.3.2", "", {}, "sha512-KQQR9yN7R5+OSwaK0XQoj22pwHoTlgYqmUscPYoknOoWCWfj/5/ABTMRi69FrKU5ffPVh5QcFikpWJI/P1ocHA=="],
 

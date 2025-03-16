@@ -74,14 +74,14 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 	}}
 />
 
-<!-- Audio engine component (no UI) -->
-<MetronomeAudio 
-	state={metronomeState}
-	hasUserInteracted={hasUserInteracted}
-/>
-
 <!-- Network component for WebSocket connections (no UI) -->
 <MetronomeNetwork
 	state={metronomeState}
 	onRemoteStateUpdate={updateState}
+/>
+
+<!-- Audio engine component (no UI) -->
+<MetronomeAudio
+	state={metronomeState}
+	hasUserInteracted={hasUserInteracted}
 />
