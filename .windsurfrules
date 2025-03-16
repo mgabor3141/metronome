@@ -22,6 +22,7 @@
 - Write functional-style TypeScript where possible.
 - Use default parameter values instead of null/undefined checks.
 - Use RO-RO (Receive Object, Return Object) for passing and returning multiple parameters.
+- Prefer `const` where possible.
 
 # Styling & UI
 - Use Tailwind CSS for styling.
@@ -31,3 +32,10 @@
 - Write idiomatic Svelte.
 - Runes such as $state, $derived, etc. do not need to be imported. They are globally available.
 - Svelte runes are used like this: `const count = $state(0); count++;`
+
+# Package Management
+- Use `bun` as the package manager.
+
+# Running the App
+- The app is running and available at this address: http://localhost:4321/
+- The server is running in watch mode, so changes are be visible immediately.

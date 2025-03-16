@@ -25,14 +25,20 @@ export type PartialMetronomeState = {
  * This component owns the state and delegates UI rendering to MetronomeUI
  */
 import MetronomeUI from "./MetronomeUI.svelte"
+import MetronomeAudio from "./MetronomeAudio.svelte"
 
-// Encapsulate all state in a single object
-const state = $state<MetronomeState>({
+// State object that contains all state values
+const metronomeState = $state<MetronomeState>({
 	bpm: 120,
 	timeSignature: {
 		beatsPerMeasure: 4,
 		beatUnit: 4,
 	},
+})
+
+// Playing state
+const playbackState = $state({
+	isPlaying: false
 })
 
 /**
@@ -42,7 +48,7 @@ const state = $state<MetronomeState>({
 const updateState = (partialState: PartialMetronomeState): void => {
 	// Update top-level properties
 	if (partialState.bpm !== undefined) {
-		state.bpm = partialState.bpm
+		metronomeState.bpm = partialState.bpm
 	}
 	
 	// Update nested timeSignature properties
@@ -50,18 +56,33 @@ const updateState = (partialState: PartialMetronomeState): void => {
 		const { beatsPerMeasure, beatUnit } = partialState.timeSignature
 		
 		if (beatsPerMeasure !== undefined) {
-			state.timeSignature.beatsPerMeasure = beatsPerMeasure
+			metronomeState.timeSignature.beatsPerMeasure = beatsPerMeasure
 		}
 		
 		if (beatUnit !== undefined) {
-			state.timeSignature.beatUnit = beatUnit
+			metronomeState.timeSignature.beatUnit = beatUnit
 		}
 	}
+}
+
+/**
+ * Toggle the playing state of the metronome
+ */
+const togglePlayback = (): void => {
+	playbackState.isPlaying = !playbackState.isPlaying
 }
 </script>
 
 <!-- Pass state and event handlers to the UI component -->
 <MetronomeUI
-	state={state}
+	state={metronomeState}
+	isPlaying={playbackState.isPlaying}
 	onStateUpdate={updateState}
+	onTogglePlayback={togglePlayback}
+/>
+
+<!-- Audio engine component (no UI) -->
+<MetronomeAudio 
+	state={metronomeState}
+	isPlaying={playbackState.isPlaying}
 />

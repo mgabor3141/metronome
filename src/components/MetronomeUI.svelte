@@ -14,8 +14,12 @@ const MAX_BEATS_PER_MEASURE = 12
 interface MetronomeUIProps {
 	// Full state object
 	state: MetronomeState
+	// Playing state
+	isPlaying: boolean
 	// Single event handler for state updates
 	onStateUpdate: (partialState: PartialMetronomeState) => void
+	// Toggle playback handler
+	onTogglePlayback: () => void
 }
 
 // Receive props from parent component
@@ -24,37 +28,35 @@ const props: MetronomeUIProps = $props()
 // UI-specific derived values
 const beatDurationMs = $derived(60000 / props.state.bpm)
 
-// Generic handler for input changes
-const handleInputChange = (
-	event: Event,
-	key: keyof PartialMetronomeState | keyof MetronomeState["timeSignature"],
-	isTimeSignature = false,
-): void => {
-	const target = event.target as HTMLInputElement | HTMLSelectElement
+// Specific handlers for each input type
+const handleBpmChange = (event: Event): void => {
+	const target = event.target as HTMLInputElement
 	const value = Number.parseInt(target.value, 10)
-
-	// Validate input based on the key
-	let isValid = true
-
-	if (key === "bpm") {
-		isValid = value >= MIN_BPM && value <= MAX_BPM
-	} else if (key === "beatsPerMeasure") {
-		isValid = value >= 1 && value <= MAX_BEATS_PER_MEASURE
-	} else if (key === "beatUnit") {
-		isValid = VALID_BEAT_UNITS.includes(value)
+	
+	if (value >= MIN_BPM && value <= MAX_BPM) {
+		props.onStateUpdate({ bpm: value })
 	}
+}
 
-	if (isValid) {
-		// Create the appropriate partial state update
-		if (isTimeSignature) {
-			props.onStateUpdate({
-				timeSignature: { [key]: value } as Partial<
-					MetronomeState["timeSignature"]
-				>,
-			})
-		} else {
-			props.onStateUpdate({ [key]: value } as PartialMetronomeState)
-		}
+const handleBeatsPerMeasureChange = (event: Event): void => {
+	const target = event.target as HTMLSelectElement
+	const value = Number.parseInt(target.value, 10)
+	
+	if (value >= 1 && value <= MAX_BEATS_PER_MEASURE) {
+		props.onStateUpdate({
+			timeSignature: { beatsPerMeasure: value }
+		})
+	}
+}
+
+const handleBeatUnitChange = (event: Event): void => {
+	const target = event.target as HTMLSelectElement
+	const value = Number.parseInt(target.value, 10)
+	
+	if (VALID_BEAT_UNITS.includes(value)) {
+		props.onStateUpdate({
+			timeSignature: { beatUnit: value }
+		})
 	}
 }
 </script>
@@ -87,7 +89,7 @@ const handleInputChange = (
 					min={MIN_BPM}
 					max={MAX_BPM}
 					value={props.state.bpm}
-					oninput={(e) => handleInputChange(e, 'bpm')}
+					oninput={handleBpmChange}
 					class="flex-grow"
 				/>
 				<input
@@ -95,7 +97,7 @@ const handleInputChange = (
 					min={MIN_BPM}
 					max={MAX_BPM}
 					value={props.state.bpm}
-					oninput={(e) => handleInputChange(e, 'bpm')}
+					oninput={handleBpmChange}
 					class="w-16 p-1 border rounded text-center"
 				/>
 			</div>
@@ -109,7 +111,7 @@ const handleInputChange = (
 				<select
 					id="beats-per-measure"
 					value={props.state.timeSignature.beatsPerMeasure}
-					onchange={(e) => handleInputChange(e, 'beatsPerMeasure', true)}
+					onchange={handleBeatsPerMeasureChange}
 					class="p-1 border rounded"
 				>
 					{#each Array.from({ length: MAX_BEATS_PER_MEASURE }, (_, i) => i + 1) as beats}
@@ -120,7 +122,7 @@ const handleInputChange = (
 				<select
 					id="beat-unit"
 					value={props.state.timeSignature.beatUnit}
-					onchange={(e) => handleInputChange(e, 'beatUnit', true)}
+					onchange={handleBeatUnitChange}
 					class="p-1 border rounded"
 				>
 					{#each VALID_BEAT_UNITS as unit}
@@ -131,10 +133,24 @@ const handleInputChange = (
 		</div>
 	</div>
 
-	<!-- Placeholder for future audio engine controls -->
+	<!-- Playback Controls -->
 	<div class="mt-6 flex justify-center">
-		<button class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors">
-			Start
+		<button 
+			class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+			onclick={props.onTogglePlayback}
+		>
+			{#if props.isPlaying}
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<rect x="6" y="4" width="3" height="12" rx="1" />
+					<rect x="11" y="4" width="3" height="12" rx="1" />
+				</svg>
+				Pause
+			{:else}
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+				</svg>
+				Start
+			{/if}
 		</button>
 	</div>
 </div>
