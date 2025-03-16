@@ -10,6 +10,7 @@ export interface TimeSignature {
 export interface MetronomeState {
 	bpm: number
 	timeSignature: TimeSignature
+	isPlaying: boolean
 }
 
 /**
@@ -30,22 +31,18 @@ import MetronomeAudio from "./MetronomeAudio.svelte"
 import MetronomeNetwork from "./MetronomeNetwork.svelte"
 import { deepMergeIfChanged } from "../utils/object-utils"
 
-// State object that contains all state values
+// Raw state needed to trigger dependencies
 let metronomeState = $state.raw<MetronomeState>({
 	bpm: 120,
 	timeSignature: {
 		beatsPerMeasure: 4,
 		beatUnit: 4,
 	},
+	isPlaying: false
 })
 
-// Playback state
-interface PlaybackState {
-	isPlaying: boolean
-}
-const playbackState = $state<PlaybackState>({
-	isPlaying: false,
-})
+// Local audio playback state (may differ from network state due to autoplay restrictions)
+let hasUserInteracted = $state(false)
 
 /**
  * Single handler for all state updates
@@ -59,39 +56,32 @@ const updateState = (partialState: PartialMetronomeState): void => {
 /**
  * Toggle the playing state of the metronome
  */
-const togglePlayback = (): void => {
-	playbackState.isPlaying = !playbackState.isPlaying;
-}
-
-/**
- * Handle remote state updates from other clients via WebSocket
- */
-const handleRemoteStateUpdate = (remoteState: MetronomeState, isPlaying: boolean): void => {
-	// Update local state to match remote state, only if there are changes
-	metronomeState = deepMergeIfChanged(metronomeState, remoteState)
-	
-	// Update playback state
-	playbackState.isPlaying = isPlaying;
+const togglePlayback = (firstLocalPlay: boolean = false): void => {
+	metronomeState = {
+		...metronomeState, isPlaying: !metronomeState.isPlaying || firstLocalPlay
+	}
 }
 </script>
 
 <!-- Pass state and event handlers to the UI component -->
 <MetronomeUI
 	state={metronomeState}
-	isPlaying={playbackState.isPlaying}
+	hasUserInteracted={hasUserInteracted}
 	onStateUpdate={updateState}
-	onTogglePlayback={togglePlayback}
+	onTogglePlayback={() => {
+		togglePlayback(!hasUserInteracted)
+		hasUserInteracted = true
+	}}
 />
 
 <!-- Audio engine component (no UI) -->
 <MetronomeAudio 
 	state={metronomeState}
-	isPlaying={playbackState.isPlaying}
+	hasUserInteracted={hasUserInteracted}
 />
 
 <!-- Network component for WebSocket connections (no UI) -->
 <MetronomeNetwork
 	state={metronomeState}
-	isPlaying={playbackState.isPlaying}
-	onRemoteStateUpdate={handleRemoteStateUpdate}
+	onRemoteStateUpdate={updateState}
 />

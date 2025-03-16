@@ -8,7 +8,7 @@ import { onDestroy } from "svelte"
 
 interface MetronomeAudioProps {
 	state: MetronomeState
-	isPlaying: boolean
+	hasUserInteracted: boolean
 }
 
 const props: MetronomeAudioProps = $props()
@@ -130,7 +130,7 @@ const stopMetronome = (): void => {
 
 // Handle BPM and playback state changes
 $effect(() => {
-	if (!props.isPlaying) {
+	if (!(props.state.isPlaying && props.hasUserInteracted)) {
 		stopMetronome()
 		return
 	}

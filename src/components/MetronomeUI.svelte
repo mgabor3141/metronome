@@ -14,8 +14,8 @@ const MAX_BEATS_PER_MEASURE = 12
 interface MetronomeUIProps {
 	// Full state object
 	state: MetronomeState
-	// Playing state
-	isPlaying: boolean
+	// Local playing state (for audio playback)
+	hasUserInteracted: boolean
 	// Single event handler for state updates
 	onStateUpdate: (partialState: PartialMetronomeState) => void
 	// Toggle playback handler
@@ -32,7 +32,7 @@ const beatDurationMs = $derived(60000 / props.state.bpm)
 const handleBpmChange = (event: Event): void => {
 	const target = event.target as HTMLInputElement
 	const value = Number.parseInt(target.value, 10)
-	
+
 	if (value >= MIN_BPM && value <= MAX_BPM) {
 		props.onStateUpdate({ bpm: value })
 	}
@@ -41,10 +41,10 @@ const handleBpmChange = (event: Event): void => {
 const handleBeatsPerMeasureChange = (event: Event): void => {
 	const target = event.target as HTMLSelectElement
 	const value = Number.parseInt(target.value, 10)
-	
+
 	if (value >= 1 && value <= MAX_BEATS_PER_MEASURE) {
 		props.onStateUpdate({
-			timeSignature: { beatsPerMeasure: value }
+			timeSignature: { beatsPerMeasure: value },
 		})
 	}
 }
@@ -52,10 +52,10 @@ const handleBeatsPerMeasureChange = (event: Event): void => {
 const handleBeatUnitChange = (event: Event): void => {
 	const target = event.target as HTMLSelectElement
 	const value = Number.parseInt(target.value, 10)
-	
+
 	if (VALID_BEAT_UNITS.includes(value)) {
 		props.onStateUpdate({
-			timeSignature: { beatUnit: value }
+			timeSignature: { beatUnit: value },
 		})
 	}
 }
@@ -134,12 +134,12 @@ const handleBeatUnitChange = (event: Event): void => {
 	</div>
 
 	<!-- Playback Controls -->
-	<div class="mt-6 flex justify-center">
+	<div class="mt-6 flex flex-col items-center">
 		<button 
 			class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
 			onclick={props.onTogglePlayback}
 		>
-			{#if props.isPlaying}
+			{#if props.state.isPlaying && props.hasUserInteracted}
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 					<rect x="6" y="4" width="3" height="12" rx="1" />
 					<rect x="11" y="4" width="3" height="12" rx="1" />
@@ -152,10 +152,17 @@ const handleBeatUnitChange = (event: Event): void => {
 				Start
 			{/if}
 		</button>
+		
+		{#if props.state.isPlaying && !props.hasUserInteracted}
+			<div class="mt-2 text-sm text-amber-600 flex items-center gap-1">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+				</svg>
+				<span>
+					Click Start to join.
+				</span>
+			</div>
+		{/if}
 	</div>
-</div>
 
-<style>
-	/* Component-specific styles can be added here if needed */
-	/* Most styling is handled by Tailwind CSS classes */
-</style>
+</div>

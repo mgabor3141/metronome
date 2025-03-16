@@ -18,7 +18,6 @@ interface RegisterMessage extends BaseMessage {
 interface StateUpdateMessage extends BaseMessage {
 	type: "stateUpdate"
 	state: MetronomeStateType
-	isPlaying: boolean
 }
 
 // Client connections map: clientId -> WebSocket
@@ -27,11 +26,8 @@ const clients = new Map<string, WebSocket>()
 // Group membership map: clientCode -> Set of clientIds
 const groups = new Map<string, Set<string>>()
 
-// Group state map: clientCode -> { state, isPlaying }
-const groupStates = new Map<
-	string,
-	{ state: MetronomeStateType; isPlaying: boolean }
->()
+// Group state map: clientCode -> MetronomeStateType
+const groupStates = new Map<string, MetronomeStateType>()
 
 /**
  * Adds a client to a group
@@ -104,9 +100,9 @@ const broadcastMessageToGroup = (
 		// Skip the excluded client if specified
 		if (excludeClientId && clientId === excludeClientId) continue
 
-		const client = clients.get(clientId)
-		if (client && client.readyState === WebSocket.OPEN) {
-			client.send(messageStr)
+		const socket = clients.get(clientId)
+		if (socket && socket.readyState === WebSocket.OPEN) {
+			socket.send(messageStr)
 		}
 	}
 }
@@ -116,12 +112,10 @@ const broadcastMessageToGroup = (
  */
 const broadcastGroupSizeUpdate = (clientCode: string): void => {
 	const groupSize = getGroupSize(clientCode)
-
 	broadcastMessageToGroup(clientCode, {
 		type: "groupUpdate",
 		clientCode,
 		clientsInGroup: groupSize,
-		timestamp: new Date().toISOString(),
 	})
 }
 
@@ -132,12 +126,11 @@ const updateGroupState = (
 	clientCode: string,
 	clientId: string,
 	state: MetronomeStateType,
-	isPlaying: boolean,
 ): void => {
-	// Store the state for this group
-	groupStates.set(clientCode, { state, isPlaying })
+	// Update the group state
+	groupStates.set(clientCode, state)
 
-	// Broadcast the state update to other clients in the group
+	// Broadcast the state update to all other clients in the group
 	broadcastMessageToGroup(
 		clientCode,
 		{
@@ -145,43 +138,31 @@ const updateGroupState = (
 			clientId,
 			clientCode,
 			state,
-			isPlaying,
-			timestamp: new Date().toISOString(),
 		},
-		clientId,
+		clientId, // Exclude the sender
 	)
 }
 
-export async function GET(ctx: APIContext) {
+export const GET = (ctx: APIContext) => {
 	// Upgrade the connection to WebSocket
 	const { response, socket } = ctx.locals.upgradeWebSocket()
 
-	// Generate a unique ID for this connection
-	let clientId = ""
-	let clientCode = ""
+	// Client identification
+	let clientId: string | null = null
+	let clientCode: string | null = null
 
-	// Handle connection close
-	socket.addEventListener("close", () => {
-		console.log(`WebSocket connection closed for client ${clientId}`)
-
-		// Remove the client
-		clients.delete(clientId)
-
-		// Remove the client from its group
-		if (clientId) {
-			removeClientFromGroup(clientId)
-		}
-	})
-
+	// Handle WebSocket messages
 	socket.onmessage = async (event: MessageEvent<Blob>) => {
 		try {
 			const message = JSON.parse(await event.data.text())
+			console.log("Received message:", message)
 
-			// Handle registration
-			if (message.type === "register") {
-				clientId = message.clientId
-				clientCode = message.clientCode
+			// Extract client ID and code from message
+			clientId = message.clientId || clientId
+			clientCode = message.clientCode || clientCode
 
+			// Handle client registration
+			if (message.type === "register" && clientId && clientCode) {
 				// Store the client connection
 				clients.set(clientId, socket)
 
@@ -189,70 +170,51 @@ export async function GET(ctx: APIContext) {
 				addClientToGroup(clientId, clientCode)
 
 				// Send registration confirmation
-				const groupSize = getGroupSize(clientCode)
 				socket.send(
 					JSON.stringify({
 						type: "registered",
 						clientId,
 						clientCode,
-						clientsInGroup: groupSize,
+						clientsInGroup: getGroupSize(clientCode),
 						timestamp: new Date().toISOString(),
 					}),
 				)
 
-				// If this group already has a state, send it to the new client
+				// Broadcast group size update to all clients in the group
+				broadcastGroupSizeUpdate(clientCode)
+
+				// If this group has an existing state, send it to the new client
 				const groupState = groupStates.get(clientCode)
 				if (groupState) {
 					socket.send(
 						JSON.stringify({
 							type: "initialState",
-							state: groupState.state,
-							isPlaying: groupState.isPlaying,
-							timestamp: new Date().toISOString(),
+							state: groupState,
 						}),
 					)
 				}
-
-				// Notify other clients in the group about the new client
-				broadcastGroupSizeUpdate(clientCode)
-
-				console.log(`Client ${clientId} registered in group ${clientCode}`)
 			}
 
 			// Handle state updates
-			if (message.type === "stateUpdate") {
+			if (message.type === "stateUpdate" && clientId && clientCode) {
 				// Update the group state and broadcast to other clients
-				updateGroupState(
-					message.clientCode,
-					message.clientId,
-					message.state,
-					message.isPlaying,
-				)
-			}
-
-			// Handle ping messages
-			if (message.type === "ping") {
-				socket.send(
-					JSON.stringify({ type: "pong", timestamp: new Date().toISOString() }),
-				)
+				updateGroupState(clientCode, clientId, message.state)
 			}
 		} catch (error) {
-			console.error("Error processing WebSocket message:", error)
+			console.error("Error processing message:", error)
 		}
 	}
 
 	// Handle WebSocket close
 	socket.onclose = () => {
-		if (clientCode) {
-			console.log(`Client disconnected: ${clientCode}`)
-			removeClientFromGroup(clientCode)
-		}
+		console.log(`Client disconnected from ${clientCode}: ${clientId}`)
+		if (clientId) removeClientFromGroup(clientId)
 	}
 
 	// Handle WebSocket errors
 	socket.onerror = (error) => {
-		console.error(`WebSocket error for client ${clientCode}:`, error)
-		removeClientFromGroup(clientCode)
+		console.error(`WebSocket error for client ${clientId} in ${clientCode}:`, error)
+		if (clientId) removeClientFromGroup(clientId)
 	}
 
 	return response
