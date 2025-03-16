@@ -1,19 +1,25 @@
 {
-  "name": "metronome",
-  "type": "module",
-  "version": "0.0.1",
-  "scripts": {
-    "dev": "bunx --bun astro dev",
-    "build": "bunx --bun astro build",
-    "preview": "bunx --bun astro preview",
-    "astro": "bunx --bun astro"
-  },
-  "dependencies": {
-    "@astrojs/svelte": "^7.0.6",
-    "@tailwindcss/vite": "^4.0.14",
-    "astro": "^5.5.2",
-    "svelte": "^5.23.0",
-    "tailwindcss": "^4.0.14",
-    "typescript": "^5.8.2"
-  }
+	"name": "metronome",
+	"type": "module",
+	"version": "0.0.1",
+	"scripts": {
+		"dev": "bunx --bun astro dev",
+		"build": "bunx --bun astro build",
+		"preview": "bunx --bun astro preview",
+		"astro": "bunx --bun astro",
+		"check": "biome check",
+		"check:fix": "biome check --write"
+	},
+	"dependencies": {
+		"@astrojs/svelte": "^7.0.6",
+		"@tailwindcss/vite": "^4.0.14",
+		"astro": "^5.5.2",
+		"svelte": "^5.23.0",
+		"tailwindcss": "^4.0.14",
+		"typescript": "^5.8.2"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "1.9.4"
+	},
+	"trustedDependencies": ["core-js"]
 }

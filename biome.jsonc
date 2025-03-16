@@ -1,0 +1,10 @@
+{
+	"files": {
+		"ignore": [".astro"]
+	},
+	"javascript": {
+		"formatter": {
+			"semicolons": "asNeeded"
+		}
+	}
+}
