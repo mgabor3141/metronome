@@ -33,6 +33,9 @@
 - Runes such as $state, $derived, etc. do not need to be imported. They are globally available.
 - Svelte runes are used like this: `const count = $state(0); count++;`
 
+# Tone.js
+- Tone.Transport is deprecated.
+
 # Package Management
 - Use `bun` as the package manager.
 

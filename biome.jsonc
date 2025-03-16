@@ -1,6 +1,6 @@
 {
 	"files": {
-		"ignore": [".astro"]
+		"ignore": [".astro", "node_modules"]
 	},
 	"javascript": {
 		"formatter": {

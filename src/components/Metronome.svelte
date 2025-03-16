@@ -28,7 +28,7 @@ import MetronomeUI from "./MetronomeUI.svelte"
 import MetronomeAudio from "./MetronomeAudio.svelte"
 
 // State object that contains all state values
-const metronomeState = $state<MetronomeState>({
+let metronomeState = $state.raw<MetronomeState>({
 	bpm: 120,
 	timeSignature: {
 		beatsPerMeasure: 4,
@@ -46,22 +46,13 @@ const playbackState = $state({
  * Takes a partial state object and merges it with the current state
  */
 const updateState = (partialState: PartialMetronomeState): void => {
-	// Update top-level properties
-	if (partialState.bpm !== undefined) {
-		metronomeState.bpm = partialState.bpm
-	}
-	
-	// Update nested timeSignature properties
-	if (partialState.timeSignature) {
-		const { beatsPerMeasure, beatUnit } = partialState.timeSignature
-		
-		if (beatsPerMeasure !== undefined) {
-			metronomeState.timeSignature.beatsPerMeasure = beatsPerMeasure
-		}
-		
-		if (beatUnit !== undefined) {
-			metronomeState.timeSignature.beatUnit = beatUnit
-		}
+	metronomeState = {
+		...metronomeState,
+		...partialState,
+		timeSignature: {
+			...metronomeState.timeSignature,
+			...partialState.timeSignature,
+		},
 	}
 }
 

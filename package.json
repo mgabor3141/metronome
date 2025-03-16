@@ -22,5 +22,8 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4"
 	},
-	"trustedDependencies": ["core-js"]
+	"trustedDependencies": ["core-js"],
+	"patchedDependencies": {
+		"tone@15.0.4": "patches/tone@15.0.4.patch"
+	}
 }
