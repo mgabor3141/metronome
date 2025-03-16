@@ -7,19 +7,19 @@ import type { MetronomeState } from "../../components/Metronome.svelte"
 // Define types for WebSocket messages
 type ClientRegistrationMessage = {
 	type: "register"
-	clientId: string
+	clientCode: string
 }
 
 type StateUpdateMessage = {
 	type: "stateUpdate"
-	clientId: string
+	clientCode: string
 	state: MetronomeState
 	isPlaying: boolean
 }
 
 type ServerRegistrationConfirmation = {
 	type: "registered"
-	clientId: string
+	clientCode: string
 	timestamp: string
 }
 
@@ -36,43 +36,41 @@ export const GET: APIRoute = async (context) => {
 	if (context.locals.isUpgradeRequest) {
 		// Upgrade the connection to WebSocket
 		const { response, socket } = context.locals.upgradeWebSocket()
-		let clientId = ""
+		let clientCode = ""
 
 		// Handle WebSocket messages
 		socket.onmessage = async (event: MessageEvent<Blob>) => {
-			const data = JSON.parse(await event.data.text()) as WebSocketMessage
 			try {
+				const data = JSON.parse(await event.data.text())
+				
 				// Handle client registration
-				if (data.type === "register") {
-					clientId = data.clientId
-					console.log(`Client registered: ${clientId}`)
+				if (data.type === "register" && data.clientCode) {
+					clientCode = data.clientCode
+					console.log(`Client registered: ${clientCode}`)
 
 					// Store client connection
-					connectedClients.set(clientId, socket)
+					connectedClients.set(clientCode, socket)
 
 					// Confirm registration
 					socket.send(
 						JSON.stringify({
 							type: "registered",
-							clientId,
+							clientCode,
 							timestamp: new Date().toISOString(),
 						} as ServerRegistrationConfirmation),
 					)
 				}
 
 				// Handle state updates
-				if (data.type === "stateUpdate") {
+				if (data.type === "stateUpdate" && data.clientCode) {
 					console.log(
-						`State update from ${data.clientId}:`,
+						`State update from ${data.clientCode}:`,
 						data.state,
 					)
 
 					// Broadcast the state update to all other clients
-					broadcastMessage(data, data.clientId)
+					broadcastMessage(data, data.clientCode)
 				}
-
-				// Log all received messages
-				console.log(`Received message from ${clientId}:`, data)
 			} catch (error) {
 				console.error("Error processing WebSocket message:", error)
 			}
@@ -80,15 +78,15 @@ export const GET: APIRoute = async (context) => {
 
 		// Handle WebSocket close
 		socket.onclose = () => {
-			if (clientId) {
-				console.log(`Client disconnected: ${clientId}`)
-				connectedClients.delete(clientId)
+			if (clientCode) {
+				console.log(`Client disconnected: ${clientCode}`)
+				connectedClients.delete(clientCode)
 			}
 		}
 
 		// Handle WebSocket errors
 		socket.onerror = (error) => {
-			console.error(`WebSocket error for client ${clientId}:`, error)
+			console.error(`WebSocket error for client ${clientCode}:`, error)
 		}
 
 		return response
@@ -104,18 +102,18 @@ export const GET: APIRoute = async (context) => {
  * Broadcast a message to all connected clients except the sender
  */
 function broadcastMessage(
-	message: WebSocketMessage,
-	excludeClientId: string,
+	message: StateUpdateMessage,
+	excludeClientCode: string,
 ): void {
 	const messageString = JSON.stringify(message)
 
-	for (const [clientId, socket] of connectedClients.entries()) {
+	for (const [clientCode, socket] of connectedClients.entries()) {
 		// Don't send the message back to the sender
-		if (clientId !== excludeClientId) {
+		if (clientCode !== excludeClientCode) {
 			try {
 				socket.send(messageString)
 			} catch (error) {
-				console.error(`Error sending message to client ${clientId}:`, error)
+				console.error(`Error sending message to client ${clientCode}:`, error)
 			}
 		}
 	}
