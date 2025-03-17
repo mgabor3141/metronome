@@ -16,6 +16,7 @@
 		"@tailwindcss/vite": "^4.0.14",
 		"astro": "^5.5.2",
 		"astro-bun-websocket": "^1.0.3",
+		"peerjs": "^1.5.4",
 		"svelte": "^5.23.0",
 		"tailwindcss": "^4.0.14",
 		"timesync": "^1.0.11",

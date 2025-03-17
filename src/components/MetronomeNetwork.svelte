@@ -1,7 +1,7 @@
 <script lang="ts">
 /**
  * MetronomeNetwork component that handles WebSocket connections
- * for synchronizing metronome state across devices
+ * for synchronizing metronome state across devices and manages PeerJS connections
  */
 import { onMount, onDestroy } from "svelte"
 import type { MetronomeState } from "./Metronome.svelte"
@@ -12,6 +12,7 @@ import {
 	generateClientId,
 	clearClientCode,
 } from "../utils/code-utils"
+import { getTimeSyncContext } from "./TimeSync/time-sync"
 
 interface MetronomeNetworkProps {
 	state: MetronomeState
@@ -19,6 +20,9 @@ interface MetronomeNetworkProps {
 }
 
 const props: MetronomeNetworkProps = $props()
+
+// Get time sync context
+const timeSync = getTimeSyncContext()
 
 // Network state
 interface NetworkState {
@@ -39,6 +43,8 @@ interface NetworkState {
 		isPlaying: boolean
 	} | null
 	isFullyEstablished: boolean
+	isMaster: boolean
+	masterPeerId: string | null
 }
 
 const networkState = $state<NetworkState>({
@@ -52,6 +58,8 @@ const networkState = $state<NetworkState>({
 	joinedViaLink: false,
 	lastKnownState: null,
 	isFullyEstablished: false,
+	isMaster: false,
+	masterPeerId: null,
 })
 
 // WebSocket connection
@@ -199,7 +207,8 @@ const initializeClientCode = async (): Promise<void> => {
 				)
 			}
 		} else {
-			// Request a new code from the server
+			// No code found, request a new one
+			console.debug("No client code found, requesting a new one")
 			const newCode = await requestClientCode()
 			networkState.clientCode = newCode
 		}
@@ -216,251 +225,244 @@ const initializeClientCode = async (): Promise<void> => {
 }
 
 /**
- * Checks if the current state is the same as the last received state from the network
- * to prevent echo effects
+ * Initializes the WebSocket connection
  */
-const isStateFromNetwork = (state: MetronomeState): boolean => {
-	if (!networkState.lastKnownState) return false
-
-	return (
-		state.bpm === networkState.lastKnownState.bpm &&
-		state.timeSignature.beatsPerMeasure ===
-			networkState.lastKnownState.timeSignature.beatsPerMeasure &&
-		state.timeSignature.beatUnit ===
-			networkState.lastKnownState.timeSignature.beatUnit &&
-		state.isPlaying === networkState.lastKnownState.isPlaying
-	)
-}
-
-/**
- * Establishes WebSocket connection to the server
- */
-const connectToServer = async (): Promise<void> => {
-	// Initialize client ID
-	networkState.clientId = initializeClientId()
-
-	// Initialize client code before connecting
-	await initializeClientCode()
-
-	// Ensure we have a client code before proceeding
-	if (!networkState.clientCode) {
-		console.error("Cannot connect to server without a client code")
-		return
-	}
-
+const initializeWebSocket = (): void => {
 	// Close existing connection if any
 	if (socket) {
 		socket.close()
+		socket = null
 	}
 
-	// Determine WebSocket URL based on current location
+	// Create a new WebSocket connection
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-	const wsUrl = `${protocol}//${window.location.host}/api/metronome-sync`
+	const wsUrl = `${protocol}//${window.location.host}/ws?clientId=${
+		networkState.clientId
+	}&code=${networkState.clientCode}`
 
-	console.log(
-		`Connecting to WebSocket server at ${wsUrl} as ${networkState.clientId} in group ${networkState.clientCode}`,
-	)
+	socket = new WebSocket(wsUrl)
 
-	try {
-		socket = new WebSocket(wsUrl)
+	// Set up event handlers
+	socket.addEventListener("open", handleWebSocketOpen)
+	socket.addEventListener("message", handleWebSocketMessage)
+	socket.addEventListener("close", handleWebSocketClose)
+	socket.addEventListener("error", handleWebSocketError)
 
-		socket.addEventListener("open", () => {
-			console.log("WebSocket connection established")
-			networkState.isConnected = true
-			networkState.connectionAttempts = 0
-
-			// Register this client with the server
-			sendMessage({
-				type: "register",
-				clientId: networkState.clientId,
-				clientCode: networkState.clientCode,
-			})
-		})
-
-		socket.addEventListener("message", handleWebSocketMessage)
-
-		socket.addEventListener("close", () => {
-			console.log("WebSocket connection closed")
-			networkState.isConnected = false
-
-			// Attempt to reconnect with exponential backoff
-			if (networkState.connectionAttempts < 5) {
-				const backoffTime = Math.min(
-					1000 * 2 ** networkState.connectionAttempts,
-					30000,
-				)
-				networkState.connectionAttempts++
-
-				console.log(
-					`Attempting to reconnect in ${backoffTime}ms (attempt ${networkState.connectionAttempts})`,
-				)
-				setTimeout(connectToServer, backoffTime)
-			} else {
-				console.log("Max reconnection attempts reached")
-			}
-		})
-
-		socket.addEventListener("error", (error: Event) => {
-			console.error("WebSocket error:", error)
-		})
-	} catch (error) {
-		console.error("Failed to create WebSocket connection:", error)
-	}
+	// Increment connection attempts
+	networkState.connectionAttempts++
 }
 
 /**
- * Handles WebSocket messages
+ * Handles WebSocket open event
+ */
+const handleWebSocketOpen = (): void => {
+	console.log("WebSocket connection established")
+	networkState.isConnected = true
+	networkState.connectionAttempts = 0
+}
+
+/**
+ * Handles WebSocket message event
  */
 const handleWebSocketMessage = (event: MessageEvent): void => {
 	try {
 		const message = JSON.parse(event.data)
 		console.debug("Received message:", message)
 
-		// Handle registration confirmation
-		if (message.type === "registered") {
-			console.log(`Successfully registered with code: ${message.clientCode}`)
-			networkState.clientCode = message.clientCode
-			updateUrlWithCode(message.clientCode)
-
-			// If we didn't join via a link, we're creating a new group
-			// so we're fully established after registration
-			if (!networkState.joinedViaLink) {
-				networkState.isFullyEstablished = true
-				sendStateUpdate(props.state)
-			}
-		}
-
-		// Handle state updates from other clients
-		if (
-			message.type === "stateUpdate" &&
-			message.clientId !== networkState.clientId &&
-			message.clientCode === networkState.clientCode
-		) {
-			console.log("Received state update from another client:", message)
-
-			// Store the received state to prevent echo effects
-			networkState.lastKnownState = {
-				bpm: message.state.bpm,
-				timeSignature: {
-					beatsPerMeasure: message.state.timeSignature.beatsPerMeasure,
-					beatUnit: message.state.timeSignature.beatUnit,
-				},
-				isPlaying: message.state.isPlaying,
-			}
-
-			// Update local state if callback is provided
-			if (props.onRemoteStateUpdate) {
-				props.onRemoteStateUpdate(message.state)
-			}
-
-			// Update last sync time
-			networkState.lastSyncTime = new Date().toISOString()
-		}
-
-		// Handle initial state when joining a group
-		if (message.type === "initialState") {
-			console.log("Received initial state from server:", message)
-
-			// Store the received state to prevent echo effects
-			networkState.lastKnownState = {
-				bpm: message.state.bpm,
-				timeSignature: {
-					beatsPerMeasure: message.state.timeSignature.beatsPerMeasure,
-					beatUnit: message.state.timeSignature.beatUnit,
-				},
-				isPlaying: message.state.isPlaying,
-			}
-
-			// Update local state if callback is provided
-			if (props.onRemoteStateUpdate) {
-				props.onRemoteStateUpdate(message.state)
-			}
-
-			// Update last sync time
-			networkState.lastSyncTime = new Date().toISOString()
-			console.log("Applied initial group state")
-
-			// Now that we have received the initial state, mark as fully established
-			networkState.isFullyEstablished = true
-		}
-
-		// Handle group size updates
-		if (message.type === "groupUpdate") {
-			networkState.clientsInGroup = message.clientsInGroup
-			console.log(
-				`Group size updated: ${message.clientsInGroup} clients in group ${message.clientCode}`,
-			)
+		switch (message.type) {
+			case "welcome":
+				handleWelcomeMessage(message)
+				break
+			case "state_update":
+				handleStateUpdateMessage(message)
+				break
+			case "client_joined":
+				handleClientJoinedMessage(message)
+				break
+			case "client_left":
+				handleClientLeftMessage(message)
+				break
+			default:
+				console.warn("Unknown message type:", message.type)
 		}
 	} catch (error) {
-		console.error("Error processing incoming message:", error)
+		console.error("Error handling WebSocket message:", error)
 	}
 }
 
 /**
- * Sends a message to the server
+ * Handles the welcome message from the server
  */
-const sendMessage = (data: Record<string, unknown>): void => {
-	if (socket && socket.readyState === WebSocket.OPEN) {
-		socket.send(JSON.stringify(data))
-	} else {
-		console.warn("Cannot send message: WebSocket not connected")
+const handleWelcomeMessage = async (message: {
+	clientsCount: number
+	state?: MetronomeState
+	isMaster: boolean
+	masterPeerId?: string
+}): Promise<void> => {
+	console.log(`Welcome message: ${message.clientsCount} clients in group`)
+
+	networkState.clientsInGroup = message.clientsCount
+	networkState.isFullyEstablished = true
+	networkState.isMaster = message.isMaster
+
+	// If we're the master, initialize time sync as master
+	if (message.isMaster) {
+		try {
+			await timeSync.initialize()
+			console.log("Initialized as time sync master")
+		} catch (error) {
+			console.error("Failed to initialize as time sync master:", error)
+		}
+	}
+	// If we're not the master and a master peer ID is provided, connect to it
+	else if (message.masterPeerId) {
+		networkState.masterPeerId = message.masterPeerId
+		try {
+			await timeSync.initialize(message.masterPeerId)
+			console.log(`Connected to time sync master: ${message.masterPeerId}`)
+		} catch (error) {
+			console.error("Failed to connect to time sync master:", error)
+		}
+	}
+
+	// If state is provided in the welcome message, update local state
+	if (message.state && props.onRemoteStateUpdate) {
+		networkState.lastKnownState = message.state
+		props.onRemoteStateUpdate(message.state)
 	}
 }
 
 /**
- * Sends the current metronome state to the server
+ * Handles a state update message from the server
  */
-const sendStateUpdate = (state: MetronomeState): void => {
-	// Don't send updates if not connected, not in a group, or not fully established
-	console.log($state.snapshot(networkState))
+const handleStateUpdateMessage = (message: {
+	state: MetronomeState
+	timestamp: string
+}): void => {
+	if (!props.onRemoteStateUpdate) return
 
+	// Update last sync time
+	networkState.lastSyncTime = message.timestamp
+
+	// Update last known state
+	networkState.lastKnownState = message.state
+
+	// Call the callback to update parent component state
+	props.onRemoteStateUpdate(message.state)
+}
+
+/**
+ * Handles a client joined message from the server
+ */
+const handleClientJoinedMessage = (message: { clientsCount: number }): void => {
+	networkState.clientsInGroup = message.clientsCount
+	console.log(`Client joined. Total clients: ${message.clientsCount}`)
+}
+
+/**
+ * Handles a client left message from the server
+ */
+const handleClientLeftMessage = (message: { clientsCount: number }): void => {
+	networkState.clientsInGroup = message.clientsCount
+	console.log(`Client left. Total clients: ${message.clientsCount}`)
+}
+
+/**
+ * Handles WebSocket close event
+ */
+const handleWebSocketClose = (event: CloseEvent): void => {
+	console.log(`WebSocket connection closed: ${event.code} ${event.reason}`)
+	networkState.isConnected = false
+
+	// Attempt to reconnect after a delay, with exponential backoff
+	const backoffTime = Math.min(
+		1000 * 2 ** networkState.connectionAttempts,
+		30000,
+	)
+	setTimeout(() => {
+		if (!socket || socket.readyState === WebSocket.CLOSED) {
+			console.log(
+				`Attempting to reconnect (attempt ${networkState.connectionAttempts + 1})`,
+			)
+			initializeWebSocket()
+		}
+	}, backoffTime)
+}
+
+/**
+ * Handles WebSocket error event
+ */
+const handleWebSocketError = (event: Event): void => {
+	console.error("WebSocket error:", event)
+}
+
+/**
+ * Sends a state update to the server
+ */
+const sendStateUpdate = (): void => {
 	if (
-		!networkState.isConnected ||
-		!networkState.clientCode ||
+		!socket ||
+		socket.readyState !== WebSocket.OPEN ||
 		!networkState.isFullyEstablished
 	) {
-		console.log("Skipping state update: not fully established with server")
 		return
 	}
 
-	// Don't send updates that originated from the network
-	if (isStateFromNetwork(state)) {
-		console.log("Skipping state update that originated from the network")
-		return
+	const message = {
+		type: "state_update",
+		state: props.state,
+		timestamp: new Date().toISOString(),
+		peerId: timeSync.peerId,
 	}
 
-	networkState.lastKnownState = {
-		bpm: state.bpm,
-		timeSignature: {
-			beatsPerMeasure: state.timeSignature.beatsPerMeasure,
-			beatUnit: state.timeSignature.beatUnit,
-		},
-		isPlaying: state.isPlaying,
-	}
-
-	sendMessage({
-		type: "stateUpdate",
-		clientId: networkState.clientId,
-		clientCode: networkState.clientCode,
-		state,
-	})
-
-	networkState.lastSyncTime = new Date().toISOString()
+	socket.send(JSON.stringify(message))
 }
 
-/**
- * Debounced state update to prevent flooding the server
- */
-const debouncedStateUpdate = (state: MetronomeState): void => {
-	if (stateUpdateDebounce) {
+// Initialize on component mount
+onMount(() => {
+	// Set up ping interval to keep connection alive
+	const pingInterval = setInterval(() => {
+		if (socket && socket.readyState === WebSocket.OPEN) {
+			socket.send(JSON.stringify({ type: "ping" }))
+		}
+	}, 30000) // Send ping every 30 seconds
+
+	// Initialize client ID and start the async initialization process
+	networkState.clientId = initializeClientId()
+
+	// Start the async initialization process without awaiting it
+	void (async () => {
+		try {
+			// Initialize client code first
+			await initializeClientCode()
+
+			// Then initialize WebSocket connection
+			initializeWebSocket()
+		} catch (error) {
+			console.error("Failed to initialize network:", error)
+		}
+	})()
+
+	// Clean up on component destroy
+	return () => {
+		clearInterval(pingInterval)
+	}
+})
+
+// Clean up on component destroy
+onDestroy(() => {
+	// Close WebSocket connection
+	if (socket) {
+		socket.close()
+		socket = null
+	}
+
+	// Clear any pending debounce
+	if (stateUpdateDebounce !== null) {
 		clearTimeout(stateUpdateDebounce)
-	}
-
-	stateUpdateDebounce = setTimeout(() => {
-		sendStateUpdate(state)
 		stateUpdateDebounce = null
-	}, 10) as unknown as number
-}
+	}
+})
 
 /**
  * Creates a shareable link with the current code
@@ -493,24 +495,15 @@ $effect(() => {
 	// Skip if not connected or not fully established
 	if (!networkState.isConnected || !networkState.isFullyEstablished) return
 
-	// Send state updates to the server with debouncing
-	debouncedStateUpdate(props.state)
-})
-
-// Connect to server when component mounts
-onMount(() => {
-	connectToServer()
-})
-
-// Clean up connection when component is destroyed
-onDestroy(() => {
-	if (socket) {
-		socket.close()
-	}
-
-	if (stateUpdateDebounce) {
+	// Debounce state updates to avoid flooding the server
+	if (stateUpdateDebounce !== null) {
 		clearTimeout(stateUpdateDebounce)
 	}
+
+	stateUpdateDebounce = setTimeout(() => {
+		sendStateUpdate()
+		stateUpdateDebounce = null
+	}, 10) as unknown as number
 })
 </script>
 

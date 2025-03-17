@@ -1,11 +1,12 @@
 <script lang="ts">
 /**
  * MetronomeAudio component that handles audio playback using Tone.js
+ * Simplified to work with PeerJS time synchronization
  */
 import * as Tone from "tone"
 import type { MetronomeState } from "./Metronome.svelte"
 import { onDestroy } from "svelte"
-import * as TimeSync from "../utils/time-sync"
+  import { getTimeSyncContext } from "./TimeSync/time-sync";
 
 interface MetronomeAudioProps {
 	state: MetronomeState
@@ -13,6 +14,9 @@ interface MetronomeAudioProps {
 }
 
 const props: MetronomeAudioProps = $props()
+
+// Get time sync context
+const timeSync = getTimeSyncContext()
 
 // Constants for audio settings
 const NOTE_DURATION = 0.1
@@ -25,23 +29,29 @@ const REGULAR_VELOCITY = 0.5
 type AudioState = {
 	lastBpm: number
 	currentBeat: number
-	syncOffset: number
-	isSyncInitialized: boolean
-	lastStartTime: number
+	lastTimeSignature: {
+		beatsPerMeasure: number
+		beatUnit: number
+	}
+	lastIsPlaying: boolean
+	audioInitialized: boolean
 }
 
 const audioState = $state<AudioState>({
 	lastBpm: props.state.bpm,
 	currentBeat: 0,
-	syncOffset: 0,
-	isSyncInitialized: false,
-	lastStartTime: 0
+	lastTimeSignature: {
+		beatsPerMeasure: props.state.timeSignature.beatsPerMeasure,
+		beatUnit: props.state.timeSignature.beatUnit,
+	},
+	lastIsPlaying: false,
+	audioInitialized: false,
 })
 
 // References to Tone.js objects - defined outside of functions to persist between renders
 let audioContext: AudioContext | null = null
-let loop: Tone.Loop | null = null
 let synth: Tone.Synth | null = null
+let loop: Tone.Loop | null = null
 
 /**
  * Creates a synth instance for sound generation if it doesn't exist
@@ -73,23 +83,26 @@ const playBeat = (time: number, beatInfo: { isAccented: boolean }): void => {
  * Only called after a user gesture (when play is clicked)
  */
 const initAudio = async (): Promise<void> => {
-	if (audioContext) return
+	if (audioState.audioInitialized) return
 
-	// Initialize audio context
-	audioContext = Tone.getContext().rawContext as AudioContext
+	try {
+		// Initialize audio context
+		await Tone.start()
+		audioContext = Tone.getContext().rawContext as AudioContext
+		audioState.audioInitialized = true
+		console.log("Audio context initialized successfully")
+	} catch (error) {
+		console.error("Failed to initialize audio context:", error)
+		throw error
+	}
 }
 
 /**
- * Creates or updates the beat pattern based on current settings
+ * Creates or updates the metronome loop based on current settings
  */
-const updatePattern = (): void => {
-	// Clean up existing pattern
-	if (loop) {
-		loop.dispose()
-	}
-
+const createMetronomeLoop = (): Tone.Loop => {
 	// Create new pattern
-	loop = new Tone.Loop((time: number) => {
+	const newLoop = new Tone.Loop((time: number) => {
 		if (audioState.currentBeat >= props.state.timeSignature.beatsPerMeasure) {
 			audioState.currentBeat = 0
 		}
@@ -98,108 +111,70 @@ const updatePattern = (): void => {
 		audioState.currentBeat++
 	}, `${props.state.timeSignature.beatUnit}n`)
 
-	// Store the current BPM
-	audioState.lastBpm = props.state.bpm
-
-	loop.start(0)
+	return newLoop
 }
 
 /**
- * Calculates the synchronized start position to align with other clients
- */
-const calculateSyncedStartPosition = async (): Promise<{ delaySeconds: number; startBeat: number }> => {
-	// Wait for time sync to be initialized
-	if (!audioState.isSyncInitialized) {
-		try {
-			await TimeSync.initialize()
-			audioState.isSyncInitialized = true
-		} catch (error) {
-			console.error("Failed to initialize TimeSync:", error)
-			// We'll throw an error if we can't get synchronized time
-			throw new Error("Time synchronization failed")
-		}
-	}
-	
-	// Get the synchronized time and offset
-	const timeOffset = TimeSync.getOffset()
-	audioState.syncOffset = timeOffset
-	
-	try {
-		// Calculate the next beat time
-		const { nextBeatTime, beatNumber } = TimeSync.calculateNextBeatTime(
-			props.state.bpm,
-			props.state.timeSignature.beatsPerMeasure
-		)
-		
-		// Calculate how many seconds until the next beat
-		const syncedTime = TimeSync.getSyncedTime()
-		const timeUntilNextBeat = (nextBeatTime - syncedTime) / 1000
-		
-		// Store the start time for debugging
-		audioState.lastStartTime = nextBeatTime
-		
-		console.log(`Time sync: offset=${timeOffset}ms, next beat in ${timeUntilNextBeat.toFixed(3)}s, beat ${beatNumber}`)
-		
-		return {
-			delaySeconds: timeUntilNextBeat,
-			startBeat: beatNumber
-		}
-	} catch (error) {
-		console.error("Error calculating next beat time:", error)
-		throw new Error("Failed to calculate synchronized start time")
-	}
-}
-
-/**
- * Starts the metronome playback
- * Only called after a user gesture (play button click)
+ * Starts the metronome with the correct timing based on time synchronization
  */
 const startMetronome = async (): Promise<void> => {
-	// Initialize audio if needed (only on user gesture)
-	await initAudio()
-	if (audioContext?.state !== "running") await Tone.start()
-	
-	// Ensure TimeSync is initialized before proceeding
-	if (!audioState.isSyncInitialized) {
-		try {
-			await TimeSync.initialize()
-			audioState.isSyncInitialized = true
-		} catch (error) {
-			console.error("Failed to initialize TimeSync:", error)
-			// Cannot continue without time sync
-			return
-		}
-	}
-
-	// Create or update pattern if BPM changed or pattern doesn't exist
-	if (!loop || props.state.bpm !== audioState.lastBpm) {
-		updatePattern()
-	}
-
 	try {
-		// Calculate synchronized start position
-		const { delaySeconds, startBeat } = await calculateSyncedStartPosition()
-		
-		// Reset the current beat to match the synchronized beat
-		audioState.currentBeat = startBeat
-		
-		// Start the transport if not already running
-		const transport = Tone.getTransport()
-		if (transport.state !== "started") {
-			// Reset to beginning of transport timeline
-			transport.position = 0
-			
-			// Start with a delay to synchronize with other clients
-			transport.start(`+${delaySeconds}`)
+		// Initialize audio if needed (only on user gesture)
+		if (!audioState.audioInitialized) {
+			await initAudio()
 		}
-	} catch (error) {
-		console.error("Failed to start metronome with synchronization:", error)
-		// Fall back to starting without synchronization
+
+		// Make sure audio context is running
+		if (audioContext?.state !== "running") {
+			await Tone.start()
+		}
+
+		// Stop any existing loop
+		if (loop) {
+			loop.stop().dispose()
+		}
+
+		// Create a new loop with current settings
+		loop = createMetronomeLoop()
+
+		// Set the tempo
 		const transport = Tone.getTransport()
-		if (transport.state !== "started") {
-			transport.position = 0
+		transport.bpm.value = props.state.bpm
+
+		// Calculate the synchronized start time
+		if (timeSync.isInitialized) {
+			const { nextBeatTime, beatNumber } = timeSync.calculateNextBeatTime(
+				props.state.bpm,
+				props.state.timeSignature.beatsPerMeasure,
+			)
+
+			// Calculate how many seconds until the next beat
+			const syncedTime = timeSync.getSyncedTime()
+			const timeUntilNextBeat = (nextBeatTime - syncedTime) / 1000
+
+			// Set the current beat to match the synchronized beat
+			audioState.currentBeat = beatNumber
+
+			// Log synchronization info
+			console.log(
+				`Starting metronome: BPM=${props.state.bpm}, next beat in ${timeUntilNextBeat.toFixed(3)}s, beat ${beatNumber}`,
+			)
+
+			// Start the loop and transport with the calculated delay
+			loop.start(0)
+			transport.start(`+${timeUntilNextBeat}`)
+		} else {
+			// If time sync is not initialized, just start immediately
+			loop.start(0)
 			transport.start()
 		}
+
+		// Update state
+		audioState.lastBpm = props.state.bpm
+		audioState.lastTimeSignature = { ...props.state.timeSignature }
+		audioState.lastIsPlaying = true
+	} catch (error) {
+		console.error("Error starting metronome:", error)
 	}
 }
 
@@ -207,37 +182,64 @@ const startMetronome = async (): Promise<void> => {
  * Stops the metronome playback
  */
 const stopMetronome = (): void => {
-	if (audioContext) Tone.getTransport().stop()
-	audioState.currentBeat = 0
+	if (loop) {
+		loop.stop()
+	}
+
+	const transport = Tone.getTransport()
+	transport.stop()
+	audioState.lastIsPlaying = false
 }
 
-// Check if TimeSync is already initialized
-$effect(() => {
-	TimeSync.isInitialized.subscribe(value => {
-		audioState.isSyncInitialized = value
-	})
-})
-
-// Handle BPM and playback state changes
-$effect(() => {
-	if (!(props.state.isPlaying && props.hasUserInteracted)) {
-		stopMetronome()
+/**
+ * Updates the metronome when settings change
+ */
+const updateMetronome = async (): Promise<void> => {
+	// If not playing, just update the stored values
+	if (!props.state.isPlaying) {
+		audioState.lastBpm = props.state.bpm
+		audioState.lastTimeSignature = { ...props.state.timeSignature }
 		return
 	}
 
-	startMetronome()
+	// If already playing and settings changed, restart with new settings
+	if (
+		props.state.bpm !== audioState.lastBpm ||
+		props.state.timeSignature.beatsPerMeasure !==
+			audioState.lastTimeSignature.beatsPerMeasure ||
+		props.state.timeSignature.beatUnit !== audioState.lastTimeSignature.beatUnit
+	) {
+		await startMetronome()
+	}
+}
 
-	const newBpm = props.state.bpm
+// Clean up on component destroy
+onDestroy(() => {
+	// Stop and clean up loop
+	if (loop) {
+		loop.stop().dispose()
+		loop = null
+	}
 
-	// Smooth transition to new BPM
-	Tone.getTransport().bpm.rampTo(newBpm, 0.2)
-
-	// Update pattern with new timing
-	updatePattern()
+	// Don't dispose synth to prevent memory leaks with rapid component re-renders
 })
 
-onDestroy(() => {
-	stopMetronome()
-	loop?.dispose()
+// Watch for state changes
+$effect(() => {
+	// Skip if user hasn't interacted yet
+	if (!props.hasUserInteracted) return
+
+	// Handle play/pause state changes
+	if (props.state.isPlaying !== audioState.lastIsPlaying) {
+		if (props.state.isPlaying) {
+			startMetronome()
+		} else {
+			stopMetronome()
+		}
+	}
+	// Handle other state changes while playing
+	else if (props.state.isPlaying) {
+		updateMetronome()
+	}
 })
 </script>

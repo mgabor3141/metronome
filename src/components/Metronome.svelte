@@ -1,12 +1,16 @@
 <script lang="ts" module>
 /**
- * Interface for the metronome state
+ * Metronome component module script
+ * Exports types used by other components
  */
+
+// Time signature type
 export interface TimeSignature {
 	beatsPerMeasure: number
 	beatUnit: number
 }
 
+// Metronome state type
 export interface MetronomeState {
 	bpm: number
 	timeSignature: TimeSignature
@@ -23,12 +27,13 @@ export type PartialMetronomeState = DeepPartial<MetronomeState>
 
 <script lang="ts">
 /**
- * Metronome component that manages tempo and time signature
- * This component owns the state and delegates UI rendering to MetronomeUI
+ * Main Metronome component
+ * Manages state and delegates UI rendering to child components
  */
 import MetronomeUI from "./MetronomeUI.svelte"
 import MetronomeAudio from "./MetronomeAudio.svelte"
 import MetronomeNetwork from "./MetronomeNetwork.svelte"
+import TimeSyncProvider from "./TimeSync/TimeSyncProvider.svelte"
 import { deepMergeIfChanged } from "../utils/object-utils"
 
 // Raw state needed to trigger dependencies
@@ -63,25 +68,27 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 }
 </script>
 
-<!-- Pass state and event handlers to the UI component -->
-<MetronomeUI
-	state={metronomeState}
-	hasUserInteracted={hasUserInteracted}
-	onStateUpdate={updateState}
-	onTogglePlayback={() => {
-		togglePlayback(!hasUserInteracted)
-		hasUserInteracted = true
-	}}
-/>
+<TimeSyncProvider>
+	<!-- Metronome Controls -->
+	<MetronomeUI
+		state={metronomeState}
+		hasUserInteracted={hasUserInteracted}
+		onStateUpdate={updateState}
+		onTogglePlayback={() => {
+			togglePlayback(!hasUserInteracted)
+			hasUserInteracted = true
+		}}
+	/>
 
-<!-- Network component for WebSocket connections (no UI) -->
-<MetronomeNetwork
-	state={metronomeState}
-	onRemoteStateUpdate={updateState}
-/>
+	<!-- Network component for WebSocket connections -->
+	<MetronomeNetwork
+		state={metronomeState}
+		onRemoteStateUpdate={updateState}
+	/>
 
-<!-- Audio engine component (no UI) -->
-<MetronomeAudio
-	state={metronomeState}
-	hasUserInteracted={hasUserInteracted}
-/>
+	<!-- Audio engine component -->
+	<MetronomeAudio
+		state={metronomeState}
+		hasUserInteracted={hasUserInteracted}
+	/>
+</TimeSyncProvider>
