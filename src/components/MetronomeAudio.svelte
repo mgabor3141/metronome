@@ -6,7 +6,6 @@
 import * as Tone from "tone"
 import type { MetronomeState } from "./Metronome.svelte"
 import { onDestroy } from "svelte"
-  import { getTimeSyncContext } from "./TimeSync/time-sync";
 
 interface MetronomeAudioProps {
 	state: MetronomeState
@@ -14,9 +13,6 @@ interface MetronomeAudioProps {
 }
 
 const props: MetronomeAudioProps = $props()
-
-// Get time sync context
-const timeSync = getTimeSyncContext()
 
 // Constants for audio settings
 const NOTE_DURATION = 0.1
@@ -118,64 +114,54 @@ const createMetronomeLoop = (): Tone.Loop => {
  * Starts the metronome with the correct timing based on time synchronization
  */
 const startMetronome = async (): Promise<void> => {
-	try {
-		// Initialize audio if needed (only on user gesture)
-		if (!audioState.audioInitialized) {
-			await initAudio()
-		}
-
-		// Make sure audio context is running
-		if (audioContext?.state !== "running") {
-			await Tone.start()
-		}
-
-		// Stop any existing loop
-		if (loop) {
-			loop.stop().dispose()
-		}
-
-		// Create a new loop with current settings
-		loop = createMetronomeLoop()
-
-		// Set the tempo
-		const transport = Tone.getTransport()
-		transport.bpm.value = props.state.bpm
-
-		// Calculate the synchronized start time
-		if (timeSync.isInitialized) {
-			const { nextBeatTime, beatNumber } = timeSync.calculateNextBeatTime(
-				props.state.bpm,
-				props.state.timeSignature.beatsPerMeasure,
-			)
-
-			// Calculate how many seconds until the next beat
-			const syncedTime = timeSync.getSyncedTime()
-			const timeUntilNextBeat = (nextBeatTime - syncedTime) / 1000
-
-			// Set the current beat to match the synchronized beat
-			audioState.currentBeat = beatNumber
-
-			// Log synchronization info
-			console.log(
-				`Starting metronome: BPM=${props.state.bpm}, next beat in ${timeUntilNextBeat.toFixed(3)}s, beat ${beatNumber}`,
-			)
-
-			// Start the loop and transport with the calculated delay
-			loop.start(0)
-			transport.start(`+${timeUntilNextBeat}`)
-		} else {
-			// If time sync is not initialized, just start immediately
-			loop.start(0)
-			transport.start()
-		}
-
-		// Update state
-		audioState.lastBpm = props.state.bpm
-		audioState.lastTimeSignature = { ...props.state.timeSignature }
-		audioState.lastIsPlaying = true
-	} catch (error) {
-		console.error("Error starting metronome:", error)
-	}
+	// try {
+	// 	// Initialize audio if needed (only on user gesture)
+	// 	if (!audioState.audioInitialized) {
+	// 		await initAudio()
+	// 	}
+	// 	// Make sure audio context is running
+	// 	if (audioContext?.state !== "running") {
+	// 		await Tone.start()
+	// 	}
+	// 	// Stop any existing loop
+	// 	if (loop) {
+	// 		loop.stop().dispose()
+	// 	}
+	// 	// Create a new loop with current settings
+	// 	loop = createMetronomeLoop()
+	// 	// Set the tempo
+	// 	const transport = Tone.getTransport()
+	// 	transport.bpm.value = props.state.bpm
+	// 	// Calculate the synchronized start time
+	// 	if (timeSync.isInitialized) {
+	// 		const { nextBeatTime, beatNumber } = timeSync.calculateNextBeatTime(
+	// 			props.state.bpm,
+	// 			props.state.timeSignature.beatsPerMeasure,
+	// 		)
+	// 		// Calculate how many seconds until the next beat
+	// 		const syncedTime = timeSync.getSyncedTime()
+	// 		const timeUntilNextBeat = (nextBeatTime - syncedTime) / 1000
+	// 		// Set the current beat to match the synchronized beat
+	// 		audioState.currentBeat = beatNumber
+	// 		// Log synchronization info
+	// 		console.log(
+	// 			`Starting metronome: BPM=${props.state.bpm}, next beat in ${timeUntilNextBeat.toFixed(3)}s, beat ${beatNumber}`,
+	// 		)
+	// 		// Start the loop and transport with the calculated delay
+	// 		loop.start(0)
+	// 		transport.start(`+${timeUntilNextBeat}`)
+	// 	} else {
+	// 		// If time sync is not initialized, just start immediately
+	// 		loop.start(0)
+	// 		transport.start()
+	// 	}
+	// 	// Update state
+	// 	audioState.lastBpm = props.state.bpm
+	// 	audioState.lastTimeSignature = { ...props.state.timeSignature }
+	// 	audioState.lastIsPlaying = true
+	// } catch (error) {
+	// 	console.error("Error starting metronome:", error)
+	// }
 }
 
 /**

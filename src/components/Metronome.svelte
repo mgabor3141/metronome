@@ -32,9 +32,8 @@ export type PartialMetronomeState = DeepPartial<MetronomeState>
  */
 import MetronomeUI from "./MetronomeUI.svelte"
 import MetronomeAudio from "./MetronomeAudio.svelte"
-import MetronomeNetwork from "./MetronomeNetwork.svelte"
-import TimeSyncProvider from "./TimeSync/TimeSyncProvider.svelte"
 import { deepMergeIfChanged } from "../utils/object-utils"
+import Networking from "../networking/Networking.svelte";
 
 // Raw state needed to trigger dependencies
 let metronomeState = $state.raw<MetronomeState>({
@@ -68,27 +67,21 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 }
 </script>
 
-<TimeSyncProvider>
-	<!-- Metronome Controls -->
-	<MetronomeUI
-		state={metronomeState}
-		hasUserInteracted={hasUserInteracted}
-		onStateUpdate={updateState}
-		onTogglePlayback={() => {
-			togglePlayback(!hasUserInteracted)
-			hasUserInteracted = true
-		}}
-	/>
+<!-- Metronome Controls -->
+<MetronomeUI
+	state={metronomeState}
+	hasUserInteracted={hasUserInteracted}
+	onStateUpdate={updateState}
+	onTogglePlayback={() => {
+		togglePlayback(!hasUserInteracted)
+		hasUserInteracted = true
+	}}
+/>
 
-	<!-- Network component for WebSocket connections -->
-	<MetronomeNetwork
-		state={metronomeState}
-		onRemoteStateUpdate={updateState}
-	/>
+<Networking bind:metronomeState />
 
-	<!-- Audio engine component -->
-	<MetronomeAudio
-		state={metronomeState}
-		hasUserInteracted={hasUserInteracted}
-	/>
-</TimeSyncProvider>
+<!-- Audio engine component -->
+<MetronomeAudio
+	state={metronomeState}
+	hasUserInteracted={hasUserInteracted}
+/>
