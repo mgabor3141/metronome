@@ -10,6 +10,7 @@ import * as TimeSync from "../utils/time-sync"
 interface MetronomeAudioProps {
 	state: MetronomeState
 	hasUserInteracted: boolean
+	lastStateUpdateTimestamp: number | null
 }
 
 const props: MetronomeAudioProps = $props()
@@ -28,6 +29,8 @@ type AudioState = {
 	syncOffset: number
 	isSyncInitialized: boolean
 	lastStartTime: number
+	lastStateChangeTime: number | null
+	networkDelay: number
 }
 
 const audioState = $state<AudioState>({
@@ -35,7 +38,9 @@ const audioState = $state<AudioState>({
 	currentBeat: 0,
 	syncOffset: 0,
 	isSyncInitialized: false,
-	lastStartTime: 0
+	lastStartTime: 0,
+	lastStateChangeTime: null,
+	networkDelay: 50 // Default estimate of network delay in ms
 })
 
 // References to Tone.js objects - defined outside of functions to persist between renders
@@ -106,8 +111,9 @@ const updatePattern = (): void => {
 
 /**
  * Calculates the synchronized start position to align with other clients
+ * If a state update timestamp is provided, uses that to calculate the position
  */
-const calculateSyncedStartPosition = async (): Promise<{ delaySeconds: number; startBeat: number }> => {
+const calculateSyncedStartPosition = async (stateTimestamp?: number): Promise<{ delaySeconds: number; startBeat: number }> => {
 	// Wait for time sync to be initialized
 	if (!audioState.isSyncInitialized) {
 		try {
@@ -125,7 +131,53 @@ const calculateSyncedStartPosition = async (): Promise<{ delaySeconds: number; s
 	audioState.syncOffset = timeOffset
 	
 	try {
-		// Calculate the next beat time
+		// If we have a state update timestamp, use it to calculate where we should be in the pattern
+		if (stateTimestamp) {
+			// Adjust the timestamp for network delay
+			const adjustedTimestamp = TimeSync.adjustTimestampForNetworkDelay(
+				stateTimestamp,
+				audioState.networkDelay
+			)
+			
+			// Calculate the beat difference between the adjusted timestamp and now
+			const beatDifference = TimeSync.calculateBeatDifference(
+				adjustedTimestamp,
+				props.state.bpm
+			)
+			
+			// Get the current synchronized time
+			const syncedTime = TimeSync.getSyncedTime()
+			
+			// Calculate which beat we should be on based on elapsed time since the state update
+			const beatsPerSecond = props.state.bpm / 60
+			const totalBeats = props.state.timeSignature.beatsPerMeasure
+			
+			// Calculate the beat position
+			const { beatNumber, beatFraction } = TimeSync.calculateBeatPosition(
+				syncedTime,
+				props.state.bpm,
+				totalBeats
+			)
+			
+			// Calculate time until the next beat
+			const timeToNextBeat = (1 - beatFraction) / beatsPerSecond
+			
+			console.log(`State update timestamp: ${new Date(stateTimestamp).toISOString()}`)
+			console.log(`Adjusted timestamp: ${new Date(adjustedTimestamp).toISOString()}`)
+			console.log(`Beat difference: ${beatDifference.toFixed(3)} beats`)
+			console.log(`Current beat: ${beatNumber}, fraction: ${beatFraction.toFixed(3)}, time to next beat: ${timeToNextBeat.toFixed(3)}s`)
+			
+			// Store the start time for debugging
+			audioState.lastStartTime = syncedTime
+			audioState.lastStateChangeTime = stateTimestamp
+			
+			return {
+				delaySeconds: timeToNextBeat,
+				startBeat: beatNumber
+			}
+		}
+		
+		// If no state timestamp, calculate the next beat time using the standard method
 		const { nextBeatTime, beatNumber } = TimeSync.calculateNextBeatTime(
 			props.state.bpm,
 			props.state.timeSignature.beatsPerMeasure
@@ -177,8 +229,8 @@ const startMetronome = async (): Promise<void> => {
 	}
 
 	try {
-		// Calculate synchronized start position
-		const { delaySeconds, startBeat } = await calculateSyncedStartPosition()
+		// Calculate synchronized start position, using state update timestamp if available
+		const { delaySeconds, startBeat } = await calculateSyncedStartPosition(props.lastStateUpdateTimestamp || undefined);
 		
 		// Reset the current beat to match the synchronized beat
 		audioState.currentBeat = startBeat
@@ -211,11 +263,44 @@ const stopMetronome = (): void => {
 	audioState.currentBeat = 0
 }
 
+/**
+ * Estimates network delay based on recent state updates
+ * This is a simple implementation that could be improved with more sophisticated techniques
+ */
+const updateNetworkDelayEstimate = (timestamp: number): void => {
+	if (!timestamp) return
+	
+	try {
+		// Calculate the time difference between the timestamp and now
+		const timeDifference = TimeSync.calculateTimeDifference(timestamp)
+		
+		// Simple moving average for network delay estimate
+		// Assuming half of the time difference is due to network delay
+		const newDelayEstimate = Math.abs(timeDifference) / 2
+		
+		// Update the network delay estimate with a weighted average
+		// Give more weight to the current estimate (0.7) than the new measurement (0.3)
+		audioState.networkDelay = audioState.networkDelay * 0.7 + newDelayEstimate * 0.3
+		
+		console.log(`Updated network delay estimate: ${audioState.networkDelay.toFixed(2)}ms`)
+	} catch (error) {
+		console.error("Failed to update network delay estimate:", error)
+	}
+}
+
 // Check if TimeSync is already initialized
 $effect(() => {
 	TimeSync.isInitialized.subscribe(value => {
 		audioState.isSyncInitialized = value
 	})
+})
+
+// Track state update timestamps
+$effect(() => {
+	if (props.lastStateUpdateTimestamp) {
+		audioState.lastStateChangeTime = props.lastStateUpdateTimestamp
+		updateNetworkDelayEstimate(props.lastStateUpdateTimestamp)
+	}
 })
 
 // Handle BPM and playback state changes

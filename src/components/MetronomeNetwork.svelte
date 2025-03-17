@@ -12,10 +12,11 @@ import {
 	generateClientId,
 	clearClientCode,
 } from "../utils/code-utils"
+import * as TimeSync from "../utils/time-sync"
 
 interface MetronomeNetworkProps {
 	state: MetronomeState
-	onRemoteStateUpdate?: (state: MetronomeState) => void
+	onRemoteStateUpdate?: (state: MetronomeState, timestamp?: number) => void
 }
 
 const props: MetronomeNetworkProps = $props()
@@ -37,8 +38,10 @@ interface NetworkState {
 			beatUnit: number
 		}
 		isPlaying: boolean
+		timestamp?: number
 	} | null
 	isFullyEstablished: boolean
+	networkDelay: number
 }
 
 const networkState = $state<NetworkState>({
@@ -52,6 +55,7 @@ const networkState = $state<NetworkState>({
 	joinedViaLink: false,
 	lastKnownState: null,
 	isFullyEstablished: false,
+	networkDelay: 50 // Default estimate of network delay in ms
 })
 
 // WebSocket connection
@@ -100,168 +104,71 @@ const initializeClientId = (): string => {
 }
 
 /**
- * Fetches a new client code from the server
- */
-const requestClientCode = async (): Promise<string> => {
-	networkState.isRequestingCode = true
-
-	try {
-		const response = await fetch("/api/client-code")
-		const data = await response.json()
-
-		if (data.success && data.code) {
-			// Save the code to local storage
-			saveClientCode(data.code)
-			console.log(`Received new client code: ${data.code}`)
-
-			// Update URL with the new code
-			updateUrlWithCode(data.code)
-
-			return data.code
-		}
-
-		throw new Error(data.message || "Failed to get client code")
-	} catch (error) {
-		console.error("Error requesting client code:", error)
-		throw error
-	} finally {
-		networkState.isRequestingCode = false
-	}
-}
-
-/**
- * Registers an existing client code with the server
- */
-const registerExistingCode = async (code: string): Promise<void> => {
-	try {
-		const response = await fetch("/api/client-code", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ code }),
-		})
-
-		const data = await response.json()
-
-		if (!data.success) {
-			console.error("Failed to register client code:", data.message)
-			await requestClientCode()
-		} else {
-			console.log(`Registered existing client code: ${code}`)
-
-			// Update URL with the code
-			updateUrlWithCode(code)
-
-			networkState.isFullyEstablished = true
-		}
-	} catch (error) {
-		console.error("Error registering client code:", error)
-		await requestClientCode()
-	}
-}
-
-/**
- * Initializes the client code - either retrieves from URL, local storage, or requests a new one
+ * Initializes the client code - either from URL, localStorage, or server
  */
 const initializeClientCode = async (): Promise<void> => {
 	try {
 		// First check if there's a code in the URL
 		const urlCode = getCodeFromUrl()
 		if (urlCode) {
-			console.debug(`Using code from URL: ${urlCode}`)
+			console.log(`Using code from URL: ${urlCode}`)
 			networkState.clientCode = urlCode
 			networkState.joinedViaLink = true
-
-			// Save the code from URL to local storage
 			saveClientCode(urlCode)
-
-			// Register the code with the server
-			await registerExistingCode(urlCode)
 			return
 		}
 
-		// If no URL code, check local storage
+		// Then check if there's a code in localStorage
 		if (hasClientCode()) {
-			// Use existing code from local storage
-			const code = getClientCode()
-			if (code) {
-				networkState.clientCode = code
-				console.debug(`Using existing client code: ${code}`)
-
-				// Update URL with the code
-				updateUrlWithCode(code)
-
-				await registerExistingCode(code)
-			} else {
-				throw new Error(
-					"Client code is null despite hasClientCode() returning true",
-				)
+			const storedCode = getClientCode()
+			if (storedCode) {
+				console.log(`Using stored code: ${storedCode}`)
+				networkState.clientCode = storedCode
+				return
 			}
-		} else {
-			// Request a new code from the server
-			const newCode = await requestClientCode()
-			networkState.clientCode = newCode
 		}
+
+		// Otherwise, we'll request a new code from the server
+		// This will be handled in the WebSocket connection
+		networkState.isRequestingCode = true
 	} catch (error) {
-		console.error("Error initializing client code:", error)
-		// If all else fails, try to get a new code
-		try {
-			const newCode = await requestClientCode()
-			networkState.clientCode = newCode
-		} catch (fallbackError) {
-			console.error("Failed to get client code in fallback:", fallbackError)
-		}
+		console.error("Failed to initialize client code:", error)
 	}
 }
 
 /**
- * Checks if the current state is the same as the last received state from the network
- * to prevent echo effects
+ * Sends a message to the WebSocket server
  */
-const isStateFromNetwork = (state: MetronomeState): boolean => {
-	if (!networkState.lastKnownState) return false
-
-	return (
-		state.bpm === networkState.lastKnownState.bpm &&
-		state.timeSignature.beatsPerMeasure ===
-			networkState.lastKnownState.timeSignature.beatsPerMeasure &&
-		state.timeSignature.beatUnit ===
-			networkState.lastKnownState.timeSignature.beatUnit &&
-		state.isPlaying === networkState.lastKnownState.isPlaying
-	)
-}
-
-/**
- * Establishes WebSocket connection to the server
- */
-const connectToServer = async (): Promise<void> => {
-	// Initialize client ID
-	networkState.clientId = initializeClientId()
-
-	// Initialize client code before connecting
-	await initializeClientCode()
-
-	// Ensure we have a client code before proceeding
-	if (!networkState.clientCode) {
-		console.error("Cannot connect to server without a client code")
+const sendMessage = (message: Record<string, unknown>): void => {
+	if (!socket || socket.readyState !== WebSocket.OPEN) {
+		console.warn("Cannot send message, WebSocket not open")
 		return
 	}
 
-	// Close existing connection if any
-	if (socket) {
-		socket.close()
+	try {
+		socket.send(JSON.stringify(message))
+	} catch (error) {
+		console.error("Failed to send message:", error)
 	}
+}
 
-	// Determine WebSocket URL based on current location
+/**
+ * Establishes a WebSocket connection to the server
+ */
+const connectToServer = async (): Promise<void> => {
+	// Initialize client ID and code before connecting
+	networkState.clientId = initializeClientId()
+	await initializeClientCode()
+
+	// Increment connection attempts
+	networkState.connectionAttempts++
+
+	// Get the WebSocket URL
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-	const wsUrl = `${protocol}//${window.location.host}/api/metronome-sync`
-
-	console.log(
-		`Connecting to WebSocket server at ${wsUrl} as ${networkState.clientId} in group ${networkState.clientCode}`,
-	)
+	const wsUrl = `${protocol}//${window.location.host}/api/ws`
 
 	try {
+		console.log(`Connecting to WebSocket server at ${wsUrl}`)
 		socket = new WebSocket(wsUrl)
 
 		socket.addEventListener("open", () => {
@@ -269,7 +176,7 @@ const connectToServer = async (): Promise<void> => {
 			networkState.isConnected = true
 			networkState.connectionAttempts = 0
 
-			// Register this client with the server
+			// Register with the server
 			sendMessage({
 				type: "register",
 				clientId: networkState.clientId,
@@ -279,22 +186,15 @@ const connectToServer = async (): Promise<void> => {
 
 		socket.addEventListener("message", handleWebSocketMessage)
 
-		socket.addEventListener("close", () => {
-			console.log("WebSocket connection closed")
+		socket.addEventListener("close", (event: CloseEvent) => {
+			console.log(`WebSocket connection closed: ${event.code} ${event.reason}`)
 			networkState.isConnected = false
 
 			// Attempt to reconnect with exponential backoff
 			if (networkState.connectionAttempts < 5) {
-				const backoffTime = Math.min(
-					1000 * 2 ** networkState.connectionAttempts,
-					30000,
-				)
-				networkState.connectionAttempts++
-
-				console.log(
-					`Attempting to reconnect in ${backoffTime}ms (attempt ${networkState.connectionAttempts})`,
-				)
-				setTimeout(connectToServer, backoffTime)
+				const delay = Math.min(1000 * (2 ** networkState.connectionAttempts), 30000)
+				console.log(`Reconnecting in ${delay / 1000} seconds...`)
+				setTimeout(connectToServer, delay)
 			} else {
 				console.log("Max reconnection attempts reached")
 			}
@@ -337,7 +237,32 @@ const handleWebSocketMessage = (event: MessageEvent): void => {
 			message.clientCode === networkState.clientCode
 		) {
 			console.log("Received state update from another client:", message)
-
+			
+			// Get the timestamp from the message
+			const remoteTimestamp = message.timestamp || Date.now()
+			
+			// Update network delay estimate based on message timestamp
+			updateNetworkDelayEstimate(remoteTimestamp)
+			
+			// Adjust timestamp for network delay and time sync offset
+			const adjustedTimestamp = TimeSync.adjustTimestampForNetworkDelay(
+				remoteTimestamp,
+				networkState.networkDelay
+			)
+			
+			// Calculate time difference for debugging
+			const timeDifference = TimeSync.calculateTimeDifference(adjustedTimestamp)
+			console.log(`Adjusted timestamp: ${new Date(adjustedTimestamp).toISOString()}, time difference: ${timeDifference}ms`)
+			
+			// If BPM is included, calculate beat difference for debugging
+			if (message.state.bpm) {
+				const beatDifference = TimeSync.calculateBeatDifference(
+					adjustedTimestamp,
+					message.state.bpm
+				)
+				console.log(`Beat difference: ${beatDifference.toFixed(3)} beats`)
+			}
+			
 			// Store the received state to prevent echo effects
 			networkState.lastKnownState = {
 				bpm: message.state.bpm,
@@ -346,11 +271,12 @@ const handleWebSocketMessage = (event: MessageEvent): void => {
 					beatUnit: message.state.timeSignature.beatUnit,
 				},
 				isPlaying: message.state.isPlaying,
+				timestamp: adjustedTimestamp
 			}
 
 			// Update local state if callback is provided
 			if (props.onRemoteStateUpdate) {
-				props.onRemoteStateUpdate(message.state)
+				props.onRemoteStateUpdate(message.state, adjustedTimestamp)
 			}
 
 			// Update last sync time
@@ -360,6 +286,31 @@ const handleWebSocketMessage = (event: MessageEvent): void => {
 		// Handle initial state when joining a group
 		if (message.type === "initialState") {
 			console.log("Received initial state from server:", message)
+			
+			// Get the timestamp from the message
+			const remoteTimestamp = message.timestamp || Date.now()
+			
+			// Update network delay estimate based on message timestamp
+			updateNetworkDelayEstimate(remoteTimestamp)
+			
+			// Adjust timestamp for network delay and time sync offset
+			const adjustedTimestamp = TimeSync.adjustTimestampForNetworkDelay(
+				remoteTimestamp,
+				networkState.networkDelay
+			)
+			
+			// Calculate time difference for debugging
+			const timeDifference = TimeSync.calculateTimeDifference(adjustedTimestamp)
+			console.log(`Adjusted timestamp: ${new Date(adjustedTimestamp).toISOString()}, time difference: ${timeDifference}ms`)
+			
+			// If BPM is included, calculate beat difference for debugging
+			if (message.state.bpm) {
+				const beatDifference = TimeSync.calculateBeatDifference(
+					adjustedTimestamp,
+					message.state.bpm
+				)
+				console.log(`Beat difference: ${beatDifference.toFixed(3)} beats`)
+			}
 
 			// Store the received state to prevent echo effects
 			networkState.lastKnownState = {
@@ -369,11 +320,12 @@ const handleWebSocketMessage = (event: MessageEvent): void => {
 					beatUnit: message.state.timeSignature.beatUnit,
 				},
 				isPlaying: message.state.isPlaying,
+				timestamp: adjustedTimestamp
 			}
 
 			// Update local state if callback is provided
 			if (props.onRemoteStateUpdate) {
-				props.onRemoteStateUpdate(message.state)
+				props.onRemoteStateUpdate(message.state, adjustedTimestamp)
 			}
 
 			// Update last sync time
@@ -384,49 +336,45 @@ const handleWebSocketMessage = (event: MessageEvent): void => {
 			networkState.isFullyEstablished = true
 		}
 
-		// Handle group size updates
-		if (message.type === "groupUpdate") {
-			networkState.clientsInGroup = message.clientsInGroup
-			console.log(
-				`Group size updated: ${message.clientsInGroup} clients in group ${message.clientCode}`,
-			)
+		// Handle client count updates
+		if (message.type === "clientCount") {
+			networkState.clientsInGroup = message.count
 		}
 	} catch (error) {
-		console.error("Error processing incoming message:", error)
+		console.error("Failed to handle WebSocket message:", error)
 	}
 }
 
 /**
- * Sends a message to the server
- */
-const sendMessage = (data: Record<string, unknown>): void => {
-	if (socket && socket.readyState === WebSocket.OPEN) {
-		socket.send(JSON.stringify(data))
-	} else {
-		console.warn("Cannot send message: WebSocket not connected")
-	}
-}
-
-/**
- * Sends the current metronome state to the server
+ * Sends a state update to the server
  */
 const sendStateUpdate = (state: MetronomeState): void => {
-	// Don't send updates if not connected, not in a group, or not fully established
-	console.log($state.snapshot(networkState))
-
-	if (
-		!networkState.isConnected ||
-		!networkState.clientCode ||
-		!networkState.isFullyEstablished
-	) {
-		console.log("Skipping state update: not fully established with server")
+	if (!networkState.isConnected || !networkState.isFullyEstablished) {
+		console.warn("Cannot send state update, not fully connected")
 		return
 	}
 
-	// Don't send updates that originated from the network
-	if (isStateFromNetwork(state)) {
-		console.log("Skipping state update that originated from the network")
+	// Compare with last known state to prevent echo effects
+	if (
+		networkState.lastKnownState &&
+		networkState.lastKnownState.bpm === state.bpm &&
+		networkState.lastKnownState.timeSignature.beatsPerMeasure === state.timeSignature.beatsPerMeasure &&
+		networkState.lastKnownState.timeSignature.beatUnit === state.timeSignature.beatUnit &&
+		networkState.lastKnownState.isPlaying === state.isPlaying
+	) {
+		console.debug("Skipping state update, no changes")
 		return
+	}
+
+	// Get the current time, preferring synchronized time
+	let timestamp: number
+	try {
+		// Use synchronized time if available
+		timestamp = TimeSync.getSyncedTime()
+	} catch (error) {
+		// Fall back to local time if sync not available
+		console.warn("Time sync not available, using local time for state update")
+		timestamp = Date.now()
 	}
 
 	networkState.lastKnownState = {
@@ -436,6 +384,7 @@ const sendStateUpdate = (state: MetronomeState): void => {
 			beatUnit: state.timeSignature.beatUnit,
 		},
 		isPlaying: state.isPlaying,
+		timestamp
 	}
 
 	sendMessage({
@@ -443,6 +392,7 @@ const sendStateUpdate = (state: MetronomeState): void => {
 		clientId: networkState.clientId,
 		clientCode: networkState.clientCode,
 		state,
+		timestamp
 	})
 
 	networkState.lastSyncTime = new Date().toISOString()
@@ -463,6 +413,34 @@ const debouncedStateUpdate = (state: MetronomeState): void => {
 }
 
 /**
+ * Updates the network delay estimate based on message timestamps
+ */
+const updateNetworkDelayEstimate = (timestamp: number): void => {
+	if (!timestamp) return
+	
+	try {
+		// Calculate the time difference between the timestamp and now
+		const timeDifference = TimeSync.calculateTimeDifference(timestamp)
+		
+		// Only use positive time differences (messages from the past)
+		// as negative differences could indicate clock drift
+		if (timeDifference > 0) {
+			// Simple moving average for network delay estimate
+			// Assuming half of the time difference is due to network delay
+			const newDelayEstimate = Math.min(timeDifference / 2, 500) // Cap at 500ms to avoid extreme values
+			
+			// Update the network delay estimate with a weighted average
+			// Give more weight to the current estimate (0.7) than the new measurement (0.3)
+			networkState.networkDelay = networkState.networkDelay * 0.7 + newDelayEstimate * 0.3
+			
+			console.log(`Updated network delay estimate: ${networkState.networkDelay.toFixed(2)}ms`)
+		}
+	} catch (error) {
+		console.error("Failed to update network delay estimate:", error)
+	}
+}
+
+/**
  * Creates a shareable link with the current code
  */
 const getShareableLink = (): string => {
@@ -470,7 +448,7 @@ const getShareableLink = (): string => {
 
 	const url = new URL(window.location.href)
 	url.searchParams.set("code", networkState.clientCode)
-	return url.toString()
+	return url.href
 }
 
 /**
@@ -520,30 +498,17 @@ onDestroy(() => {
 	{:else if !networkState.clientCode}
 		<p>Initializing client code...</p>
 	{:else if networkState.isConnected}
-		<div>
-			<p>
-				Connected to group <span class="font-mono font-bold">{networkState.clientCode}</span>
-				{#if networkState.joinedViaLink}
-					<span class="text-blue-500 ml-1">(joined via link)</span>
-				{/if}
-			</p>
-			
-			{#if networkState.clientsInGroup > 1}
-				<p class="mt-1">Group size: {networkState.clientsInGroup} clients</p>
-			{/if}
-			
-			{#if networkState.lastSyncTime}
-				<p class="mt-1">Last sync: {new Date(networkState.lastSyncTime).toLocaleTimeString()}</p>
-			{/if}
-			
-			<button 
-				class="mt-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+		<p>
+			Connected with code: <strong>{networkState.clientCode}</strong>
+			({networkState.clientsInGroup} {networkState.clientsInGroup === 1 ? "client" : "clients"})
+			<button
+				class="ml-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
 				onclick={copyShareableLink}
 			>
-				Share Link
+				Share
 			</button>
-		</div>
+		</p>
 	{:else}
-		<p>Disconnected (Attempt {networkState.connectionAttempts}/5)</p>
+		<p>Connecting...</p>
 	{/if}
 </div>
