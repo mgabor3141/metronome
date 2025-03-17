@@ -1,9 +1,9 @@
 # General Code Style & Formatting
 - Use English for all code and documentation.
-- Always declare the type of each variable and function (parameters and return value).
 - Avoid using any.
 - Create necessary types.
 - Use JSDoc to document public classes and methods.
+- Prefer types over interfaces.
 
 # Naming Conventions
 - Use PascalCase for classes and components.

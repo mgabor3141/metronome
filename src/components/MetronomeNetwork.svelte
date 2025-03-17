@@ -5,14 +5,8 @@
  */
 import { onMount, onDestroy } from "svelte"
 import type { MetronomeState } from "./Metronome.svelte"
-import {
-	getClientCode,
-	hasClientCode,
-	saveClientCode,
-	generateClientId,
-	clearClientCode,
-} from "../utils/code-utils"
 import { getTimeSyncContext } from "./TimeSync/time-sync"
+import { getGroupCode, saveGroupCode } from "../utils/code-utils"
 
 interface MetronomeNetworkProps {
 	state: MetronomeState
@@ -26,13 +20,13 @@ const timeSync = getTimeSyncContext()
 
 // Network state
 interface NetworkState {
-	clientId: string
-	clientCode: string
+	peerId: string
+	groupCode: string
 	isConnected: boolean
 	lastSyncTime: string | null
 	connectionAttempts: number
 	isRequestingCode: boolean
-	clientsInGroup: number
+	peersInGroup: number
 	joinedViaLink: boolean
 	lastKnownState: {
 		bpm: number
@@ -48,13 +42,13 @@ interface NetworkState {
 }
 
 const networkState = $state<NetworkState>({
-	clientId: "",
-	clientCode: "",
+	peerId: "",
+	groupCode: "",
 	isConnected: false,
 	lastSyncTime: null,
 	connectionAttempts: 0,
 	isRequestingCode: false,
-	clientsInGroup: 1,
+	peersInGroup: 1,
 	joinedViaLink: false,
 	lastKnownState: null,
 	isFullyEstablished: false,
@@ -98,29 +92,19 @@ const updateUrlWithCode = (code: string): void => {
 }
 
 /**
- * Initializes the client ID - generates a new UUID for each connection
+ * Fetches a new group code from the server
  */
-const initializeClientId = (): string => {
-	// Always generate a new UUID for each connection
-	const newId = generateClientId()
-	console.log(`Generated new client ID: ${newId}`)
-	return newId
-}
-
-/**
- * Fetches a new client code from the server
- */
-const requestClientCode = async (): Promise<string> => {
+const requestGroupCode = async (): Promise<string> => {
 	networkState.isRequestingCode = true
 
 	try {
-		const response = await fetch("/api/client-code")
+		const response = await fetch("/api/group-code")
 		const data = await response.json()
 
 		if (data.success && data.code) {
 			// Save the code to local storage
-			saveClientCode(data.code)
-			console.log(`Received new client code: ${data.code}`)
+			saveGroupCode(data.code)
+			console.log(`Received new group code: ${data.code}`)
 
 			// Update URL with the new code
 			updateUrlWithCode(data.code)
@@ -128,9 +112,9 @@ const requestClientCode = async (): Promise<string> => {
 			return data.code
 		}
 
-		throw new Error(data.message || "Failed to get client code")
+		throw new Error(data.message || "Failed to get group code")
 	} catch (error) {
-		console.error("Error requesting client code:", error)
+		console.error("Error requesting group code:", error)
 		throw error
 	} finally {
 		networkState.isRequestingCode = false
@@ -142,7 +126,7 @@ const requestClientCode = async (): Promise<string> => {
  */
 const registerExistingCode = async (code: string): Promise<void> => {
 	try {
-		const response = await fetch("/api/client-code", {
+		const response = await fetch("/api/group-code", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -153,10 +137,10 @@ const registerExistingCode = async (code: string): Promise<void> => {
 		const data = await response.json()
 
 		if (!data.success) {
-			console.error("Failed to register client code:", data.message)
-			await requestClientCode()
+			console.error("Failed to register group code:", data.message)
+			await requestGroupCode()
 		} else {
-			console.log(`Registered existing client code: ${code}`)
+			console.log(`Registered existing group code: ${code}`)
 
 			// Update URL with the code
 			updateUrlWithCode(code)
@@ -164,25 +148,25 @@ const registerExistingCode = async (code: string): Promise<void> => {
 			networkState.isFullyEstablished = true
 		}
 	} catch (error) {
-		console.error("Error registering client code:", error)
-		await requestClientCode()
+		console.error("Error registering group code:", error)
+		await requestGroupCode()
 	}
 }
 
 /**
- * Initializes the client code - either retrieves from URL, local storage, or requests a new one
+ * Initializes the group code - either retrieves from URL, local storage, or requests a new one
  */
-const initializeClientCode = async (): Promise<void> => {
+const initializeGroupCode = async (): Promise<void> => {
 	try {
 		// First check if there's a code in the URL
 		const urlCode = getCodeFromUrl()
 		if (urlCode) {
 			console.debug(`Using code from URL: ${urlCode}`)
-			networkState.clientCode = urlCode
+			networkState.groupCode = urlCode
 			networkState.joinedViaLink = true
 
 			// Save the code from URL to local storage
-			saveClientCode(urlCode)
+			saveGroupCode(urlCode)
 
 			// Register the code with the server
 			await registerExistingCode(urlCode)
@@ -190,34 +174,27 @@ const initializeClientCode = async (): Promise<void> => {
 		}
 
 		// If no URL code, check local storage
-		if (hasClientCode()) {
-			// Use existing code from local storage
-			const code = getClientCode()
-			if (code) {
-				networkState.clientCode = code
-				console.debug(`Using existing client code: ${code}`)
+		const localCode = getGroupCode()
+		if (localCode) {
+			networkState.groupCode = localCode
+			console.debug(`Using existing client code: ${localCode}`)
 
-				// Update URL with the code
-				updateUrlWithCode(code)
+			// Update URL with the code
+			updateUrlWithCode(localCode)
 
-				await registerExistingCode(code)
-			} else {
-				throw new Error(
-					"Client code is null despite hasClientCode() returning true",
-				)
-			}
+			await registerExistingCode(localCode)
 		} else {
 			// No code found, request a new one
 			console.debug("No client code found, requesting a new one")
-			const newCode = await requestClientCode()
-			networkState.clientCode = newCode
+			const newCode = await requestGroupCode()
+			networkState.groupCode = newCode
 		}
 	} catch (error) {
 		console.error("Error initializing client code:", error)
 		// If all else fails, try to get a new code
 		try {
-			const newCode = await requestClientCode()
-			networkState.clientCode = newCode
+			const newCode = await requestGroupCode()
+			networkState.groupCode = newCode
 		} catch (fallbackError) {
 			console.error("Failed to get client code in fallback:", fallbackError)
 		}
@@ -237,8 +214,8 @@ const initializeWebSocket = (): void => {
 	// Create a new WebSocket connection
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
 	const wsUrl = `${protocol}//${window.location.host}/ws?clientId=${
-		networkState.clientId
-	}&code=${networkState.clientCode}`
+		networkState.peerId
+	}&code=${networkState.groupCode}`
 
 	socket = new WebSocket(wsUrl)
 
@@ -301,7 +278,7 @@ const handleWelcomeMessage = async (message: {
 }): Promise<void> => {
 	console.log(`Welcome message: ${message.clientsCount} clients in group`)
 
-	networkState.clientsInGroup = message.clientsCount
+	networkState.peersInGroup = message.clientsCount
 	networkState.isFullyEstablished = true
 	networkState.isMaster = message.isMaster
 
@@ -355,7 +332,7 @@ const handleStateUpdateMessage = (message: {
  * Handles a client joined message from the server
  */
 const handleClientJoinedMessage = (message: { clientsCount: number }): void => {
-	networkState.clientsInGroup = message.clientsCount
+	networkState.peersInGroup = message.clientsCount
 	console.log(`Client joined. Total clients: ${message.clientsCount}`)
 }
 
@@ -363,7 +340,7 @@ const handleClientJoinedMessage = (message: { clientsCount: number }): void => {
  * Handles a client left message from the server
  */
 const handleClientLeftMessage = (message: { clientsCount: number }): void => {
-	networkState.clientsInGroup = message.clientsCount
+	networkState.peersInGroup = message.clientsCount
 	console.log(`Client left. Total clients: ${message.clientsCount}`)
 }
 
@@ -428,13 +405,13 @@ onMount(() => {
 	}, 30000) // Send ping every 30 seconds
 
 	// Initialize client ID and start the async initialization process
-	networkState.clientId = initializeClientId()
+	networkState.peerId = timeSync.peerId
 
 	// Start the async initialization process without awaiting it
 	void (async () => {
 		try {
 			// Initialize client code first
-			await initializeClientCode()
+			await initializeGroupCode()
 
 			// Then initialize WebSocket connection
 			initializeWebSocket()
@@ -468,10 +445,10 @@ onDestroy(() => {
  * Creates a shareable link with the current code
  */
 const getShareableLink = (): string => {
-	if (typeof window === "undefined" || !networkState.clientCode) return ""
+	if (typeof window === "undefined" || !networkState.groupCode) return ""
 
 	const url = new URL(window.location.href)
-	url.searchParams.set("code", networkState.clientCode)
+	url.searchParams.set("code", networkState.groupCode)
 	return url.toString()
 }
 
@@ -510,19 +487,19 @@ $effect(() => {
 <div class="network-status text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
 	{#if networkState.isRequestingCode}
 		<p>Requesting client code...</p>
-	{:else if !networkState.clientCode}
+	{:else if !networkState.groupCode}
 		<p>Initializing client code...</p>
 	{:else if networkState.isConnected}
 		<div>
 			<p>
-				Connected to group <span class="font-mono font-bold">{networkState.clientCode}</span>
+				Connected to group <span class="font-mono font-bold">{networkState.groupCode}</span>
 				{#if networkState.joinedViaLink}
 					<span class="text-blue-500 ml-1">(joined via link)</span>
 				{/if}
 			</p>
 			
-			{#if networkState.clientsInGroup > 1}
-				<p class="mt-1">Group size: {networkState.clientsInGroup} clients</p>
+			{#if networkState.peersInGroup > 1}
+				<p class="mt-1">Group size: {networkState.peersInGroup} clients</p>
 			{/if}
 			
 			{#if networkState.lastSyncTime}

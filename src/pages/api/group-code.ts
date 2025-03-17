@@ -1,24 +1,24 @@
 /**
- * API endpoint for generating and registering client codes
+ * API endpoint for generating and registering group codes
  */
 import type { APIRoute } from "astro"
-import { generateClientCode } from "../../utils/code-utils"
+import { generateGroupCode } from "../../utils/code-utils"
 
-// Store registered client codes (would be lost on server restart)
+// Store registered group codes (would be lost on server restart)
 const registeredCodes = new Set<string>()
 
 /**
- * GET handler for generating a new client code
+ * GET handler for generating a new group code
  */
 export const GET: APIRoute = async () => {
-	// Generate a unique client code
-	let code = generateClientCode()
+	// Generate a unique group code
+	let code = generateGroupCode()
 	const maxAttempts = 10
 	let attempts = 0
 	
 	// Ensure the code is unique
 	while (registeredCodes.has(code) && attempts < maxAttempts) {
-		code = generateClientCode()
+		code = generateGroupCode()
 		attempts++
 	}
 	
@@ -27,7 +27,7 @@ export const GET: APIRoute = async () => {
 		return new Response(
 			JSON.stringify({
 				success: false,
-				message: "Failed to generate a unique client code",
+				message: "Failed to generate a unique group code",
 			}),
 			{
 				status: 500,
@@ -40,7 +40,7 @@ export const GET: APIRoute = async () => {
 	
 	// Register the code
 	registeredCodes.add(code)
-	console.log(`Generated new client code: ${code}`)
+	console.log(`Generated new group code: ${code}`)
 	
 	// Return the code
 	return new Response(
@@ -58,7 +58,7 @@ export const GET: APIRoute = async () => {
 }
 
 /**
- * POST handler for registering an existing client code
+ * POST handler for registering an existing group code
  */
 export const POST: APIRoute = async ({ request }) => {
 	try {
@@ -71,7 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
 			return new Response(
 				JSON.stringify({
 					success: false,
-					message: "Invalid client code format",
+					message: "Invalid group code format",
 				}),
 				{
 					status: 400,
@@ -88,9 +88,9 @@ export const POST: APIRoute = async ({ request }) => {
 		// Register the code if it's not already registered
 		if (!isRegistered) {
 			registeredCodes.add(code)
-			console.log(`Registered existing client code: ${code}`)
+			console.log(`Registered existing group code: ${code}`)
 		} else {
-			console.log(`Client code already registered: ${code}`)
+			console.log(`Group code already registered: ${code}`)
 		}
 		
 		// Return success
@@ -107,13 +107,13 @@ export const POST: APIRoute = async ({ request }) => {
 			},
 		)
 	} catch (error) {
-		console.error("Error registering client code:", error)
+		console.error("Error registering group code:", error)
 		
 		// Return error
 		return new Response(
 			JSON.stringify({
 				success: false,
-				message: "Failed to register client code",
+				message: "Failed to register group code",
 			}),
 			{
 				status: 500,

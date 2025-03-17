@@ -1,83 +1,47 @@
 /**
- * Utility functions for client code generation and management
+ * Utility functions for group code generation and management
  */
 
-const CLIENT_CODE_KEY = "metronome-client-code"
-const CLIENT_ID_KEY = "metronome-client-id"
+const GROUP_CODE_KEY = "metronome-group-code"
 
 /**
  * Generates a random 4-letter uppercase code
  */
-export function generateClientCode(): string {
+export function generateGroupCode(): string {
 	const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ" // Excluding I and O to avoid confusion
 	let result = ""
-	
+
 	for (let i = 0; i < 4; i++) {
 		result += characters.charAt(Math.floor(Math.random() * characters.length))
 	}
-	
+
 	return result
 }
 
 /**
- * Generates a random UUID for client identification
+ * Saves the group code to local storage
  */
-export function generateClientId(): string {
-	return crypto.randomUUID()
+export function saveGroupCode(code: string): void {
+	localStorage.setItem(GROUP_CODE_KEY, code)
 }
 
 /**
- * Saves the client code to local storage
+ * Gets the group code from local storage
  */
-export function saveClientCode(code: string): void {
-	localStorage.setItem(CLIENT_CODE_KEY, code)
+export function getGroupCode(): string | null {
+	return localStorage.getItem(GROUP_CODE_KEY)
 }
 
 /**
- * Saves the client ID to local storage
+ * Checks if a group code exists in local storage
  */
-export function saveClientId(id: string): void {
-	localStorage.setItem(CLIENT_ID_KEY, id)
+export function hasGroupCode(): boolean {
+	return !!getGroupCode()
 }
 
 /**
- * Gets the client code from local storage
+ * Clears the group code from local storage
  */
-export function getClientCode(): string | null {
-	return localStorage.getItem(CLIENT_CODE_KEY)
-}
-
-/**
- * Gets the client ID from local storage
- */
-export function getClientId(): string | null {
-	return localStorage.getItem(CLIENT_ID_KEY)
-}
-
-/**
- * Checks if a client code exists in local storage
- */
-export function hasClientCode(): boolean {
-	return !!getClientCode()
-}
-
-/**
- * Checks if a client ID exists in local storage
- */
-export function hasClientId(): boolean {
-	return !!getClientId()
-}
-
-/**
- * Clears the client code from local storage
- */
-export function clearClientCode(): void {
-	localStorage.removeItem(CLIENT_CODE_KEY)
-}
-
-/**
- * Clears the client ID from local storage
- */
-export function clearClientId(): void {
-	localStorage.removeItem(CLIENT_ID_KEY)
+export function clearGroupCode(): void {
+	localStorage.removeItem(GROUP_CODE_KEY)
 }
