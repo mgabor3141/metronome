@@ -15,6 +15,11 @@ export interface MetronomeState {
 	bpm: number
 	timeSignature: TimeSignature
 	isPlaying: boolean
+	referenceTime: number
+}
+
+export type TimingState = {
+	offset: number
 }
 
 /**
@@ -33,7 +38,9 @@ export type PartialMetronomeState = DeepPartial<MetronomeState>
 import MetronomeUI from "./MetronomeUI.svelte"
 import MetronomeAudio from "./MetronomeAudio.svelte"
 import { deepMergeIfChanged } from "../utils/object-utils"
+import { calculateReferenceTime } from "../utils/timing-utils"
 import Networking from "../networking/Networking.svelte";
+import * as Tone from "tone";
 
 // Raw state needed to trigger dependencies
 let metronomeState = $state.raw<MetronomeState>({
@@ -42,7 +49,16 @@ let metronomeState = $state.raw<MetronomeState>({
 		beatsPerMeasure: 4,
 		beatUnit: 4,
 	},
-	isPlaying: false
+	isPlaying: false,
+
+	/**
+	 * Time of the "one" beat of the current measure
+	*/
+	referenceTime: Date.now()
+})
+
+let timingState = $state<TimingState>({
+	offset: 0
 })
 
 // Local audio playback state (may differ from network state due to autoplay restrictions)
@@ -54,7 +70,20 @@ let hasUserInteracted = $state(false)
  */
 const updateState = (partialState: PartialMetronomeState): void => {
 	// Update the state only if there are actual changes
-	metronomeState = deepMergeIfChanged(metronomeState, partialState)
+	const newState = deepMergeIfChanged(metronomeState, partialState)
+	if (newState !== metronomeState) {
+		if (hasUserInteracted) {
+			const playhead = Tone.getTransport().immediate()
+			newState.referenceTime = calculateReferenceTime(
+				playhead,
+				newState.bpm, 
+				newState.timeSignature.beatsPerMeasure
+			)
+			console.log("newState.referenceTime", newState.referenceTime)
+		}
+
+		metronomeState = newState
+	}
 }
 
 /**
@@ -69,8 +98,8 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 
 <!-- Metronome Controls -->
 <MetronomeUI
-	state={metronomeState}
-	hasUserInteracted={hasUserInteracted}
+	{metronomeState}
+	{hasUserInteracted}
 	onStateUpdate={updateState}
 	onTogglePlayback={() => {
 		togglePlayback(!hasUserInteracted)
@@ -78,10 +107,11 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 	}}
 />
 
-<Networking bind:metronomeState />
+<Networking bind:metronomeState bind:timingState />
 
 <!-- Audio engine component -->
 <MetronomeAudio
-	state={metronomeState}
-	hasUserInteracted={hasUserInteracted}
+	{metronomeState}
+	{hasUserInteracted}
+	{timingState}
 />

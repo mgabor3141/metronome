@@ -6,6 +6,7 @@ import {
 import { onDestroy } from "svelte"
 import type { GroupState } from "./Networking.svelte"
 import type { GroupStateUpdate } from "../pages/api/group"
+import { establishConnections } from "./peer-to-peer"
 
 // State
 let websocket: WebSocket | null = null
@@ -64,13 +65,18 @@ export const joinGroup = async (
 			}
 
 			// Handle incoming messages
-			websocket.onmessage = (event) => {
+			websocket.onmessage = async (event) => {
 				const message: GroupStateUpdate = JSON.parse(event.data)
 				console.log("Received WebSocket message:", message)
 
 				// Handle group updates
 				if (message.type === "groupUpdate") {
 					saveGroupCode(message.groupCode)
+
+					if (message.leader !== peerId) {
+						await establishConnections(message.leader)
+					}
+
 					groupStateUpdater((state) => ({
 						...state,
 						...message,

@@ -13,7 +13,7 @@ const MAX_BEATS_PER_MEASURE = 12
 // Props interface for the component
 interface MetronomeUIProps {
 	// Full state object
-	state: MetronomeState
+	metronomeState: MetronomeState
 	// Local playing state (for audio playback)
 	hasUserInteracted: boolean
 	// Single event handler for state updates
@@ -26,7 +26,7 @@ interface MetronomeUIProps {
 const props: MetronomeUIProps = $props()
 
 // UI-specific derived values
-const beatDurationMs = $derived(60000 / props.state.bpm)
+const beatDurationMs = $derived(60000 / props.metronomeState.bpm)
 
 // Specific handlers for each input type
 const handleBpmChange = (event: Event): void => {
@@ -65,9 +65,9 @@ const handleBeatUnitChange = (event: Event): void => {
 	<h1 class="text-2xl font-bold mb-4 text-center">Metronome</h1>
 
 	<div class="current-settings mb-6 p-4 bg-gray-50 rounded-md">
-		<div class="text-center text-4xl font-bold mb-2">{props.state.bpm} BPM</div>
+		<div class="text-center text-4xl font-bold mb-2">{props.metronomeState.bpm} BPM</div>
 		<div class="text-center text-xl">
-			{props.state.timeSignature.beatsPerMeasure}/{props.state.timeSignature.beatUnit}
+			{props.metronomeState.timeSignature.beatsPerMeasure}/{props.metronomeState.timeSignature.beatUnit}
 		</div>
 		<div class="text-center text-sm text-gray-500 mt-1">
 			Beat duration: {beatDurationMs.toFixed(2)}ms
@@ -88,7 +88,7 @@ const handleBeatUnitChange = (event: Event): void => {
 					type="range"
 					min={MIN_BPM}
 					max={MAX_BPM}
-					value={props.state.bpm}
+					value={props.metronomeState.bpm}
 					oninput={handleBpmChange}
 					class="flex-grow"
 				/>
@@ -96,7 +96,7 @@ const handleBeatUnitChange = (event: Event): void => {
 					type="number"
 					min={MIN_BPM}
 					max={MAX_BPM}
-					value={props.state.bpm}
+					value={props.metronomeState.bpm}
 					oninput={handleBpmChange}
 					class="w-16 p-1 border rounded text-center"
 				/>
@@ -110,7 +110,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			<div class="flex items-center gap-2">
 				<select
 					id="beats-per-measure"
-					value={props.state.timeSignature.beatsPerMeasure}
+					value={props.metronomeState.timeSignature.beatsPerMeasure}
 					onchange={handleBeatsPerMeasureChange}
 					class="p-1 border rounded"
 				>
@@ -121,7 +121,7 @@ const handleBeatUnitChange = (event: Event): void => {
 				<span class="text-xl">/</span>
 				<select
 					id="beat-unit"
-					value={props.state.timeSignature.beatUnit}
+					value={props.metronomeState.timeSignature.beatUnit}
 					onchange={handleBeatUnitChange}
 					class="p-1 border rounded"
 				>
@@ -139,7 +139,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
 			onclick={props.onTogglePlayback}
 		>
-			{#if props.state.isPlaying && props.hasUserInteracted}
+			{#if props.metronomeState.isPlaying && props.hasUserInteracted}
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 					<rect x="6" y="4" width="3" height="12" rx="1" />
 					<rect x="11" y="4" width="3" height="12" rx="1" />
@@ -153,7 +153,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			{/if}
 		</button>
 		
-		{#if props.state.isPlaying && !props.hasUserInteracted}
+		{#if props.metronomeState.isPlaying && !props.hasUserInteracted}
 			<div class="mt-2 text-sm text-amber-600 flex items-center gap-1">
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />

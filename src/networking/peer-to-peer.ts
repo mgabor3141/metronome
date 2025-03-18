@@ -15,3 +15,19 @@ export const registerPeer = async (): Promise<string> => {
 		})
 	})
 }
+
+export const establishConnections = async (leaderId: string): Promise<void> => {
+	const conn = peer.connect(leaderId)
+
+	return new Promise<void>((resolve, reject) => {
+		conn.on("open", () => {
+			console.log(`PeerJS: Connected to leader ${leaderId}`)
+			resolve()
+		})
+
+		conn.on("error", (err) => {
+			console.error(`PeerJS error: ${err}`)
+			reject(err)
+		})
+	})
+}

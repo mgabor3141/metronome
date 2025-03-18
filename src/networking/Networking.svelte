@@ -2,6 +2,7 @@
 import { registerPeer } from "./peer-to-peer"
 import { joinGroup } from "./group-client"
 import { onMount } from "svelte"
+import TimeSync from "./TimeSync.svelte"
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected"
 
@@ -15,7 +16,7 @@ export type GroupState = {
 </script>
 
 <script lang="ts">
-const { metronomeState = $bindable() } = $props()
+let { metronomeState = $bindable(), timingState = $bindable() } = $props()
 
 let groupState = $state<GroupState>({
 	groupCode: "",
@@ -43,9 +44,11 @@ onMount(() => {
 	{:else if groupState.connectionStatus !== "connected"}
 		<p>Joining group...</p>
 	{:else}
+		<TimeSync bind:timingState {groupState} />
 		<p>
 			Connected to group <span class="font-mono font-bold">{groupState?.groupCode}</span>
 		</p>
+		<p>{peerId}</p>
 		<pre class="text-left w-fit mx-auto">{JSON.stringify(groupState, null, 2)}</pre>
 	{/if}
 </div>
