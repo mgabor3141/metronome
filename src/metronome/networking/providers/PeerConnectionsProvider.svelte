@@ -2,7 +2,7 @@
 import type Peer from "peerjs"
 import type { DataConnection } from "peerjs"
 import { getGroup } from "./GroupProvider.svelte"
-import { getPeer } from "./PeerProvider.svelte"
+import { getPeer, type PeerContext } from "./PeerProvider.svelte"
 import { onDestroy } from "svelte"
 
 const getOpenConnections = (peer: Peer) => {
@@ -24,6 +24,18 @@ export const broadcast = <T>(peer: Peer, data: T) => {
 	}
 }
 
+export const send = <T>(peer: Peer, data: T, target: string) => {
+	console.log("Sending to", target, data)
+	const allConnections = peer.connections as Record<string, DataConnection[]>
+
+	const conn = allConnections[target]?.find((conn) => conn.open)
+	if (!conn) {
+		throw new Error(`No connection to peer: ${target}`)
+	}
+
+	conn.send(data)
+}
+
 const disconnectAll = (peer: Peer) => {
 	const allConnections = peer.connections as Record<string, DataConnection[]>
 
@@ -34,10 +46,17 @@ const disconnectAll = (peer: Peer) => {
 		.forEach((conn) => conn.close())
 }
 
-const syncConnections = (peer: Peer, targets: string[]) => {
-	const allConnections = peer.connections as Record<string, DataConnection[]>
+const syncConnections = (peer: PeerContext, targets: string[]) => {
+	if (!peer.instance) {
+		throw new Error("Peer not initialized")
+	}
 
-	// Disconnect unnecessary
+	const allConnections = peer.instance.connections as Record<
+		string,
+		DataConnection[]
+	>
+
+	// Disconnect unnecessary connections
 	Object.entries(allConnections)
 		.filter(([id]) => !targets.includes(id))
 		.flatMap(([_, connections]) => connections.filter((conn) => conn.open))
@@ -48,16 +67,7 @@ const syncConnections = (peer: Peer, targets: string[]) => {
 		if (target === peer.id || allConnections[target]?.some((conn) => conn.open))
 			continue
 
-		const connection = peer.connect(target)
-		connection.on("open", () => {
-			console.log("Connection opened", target)
-		})
-		connection.on("close", () => {
-			console.log("Connection closed", target)
-		})
-		connection.on("error", (err) => {
-			console.error("Connection error", target, err)
-		})
+		peer.instance.connect(target)
 	}
 }
 </script> 
@@ -71,7 +81,7 @@ const groupState = getGroup()
 $effect(() => {
     console.log("Syncing connections", $state.snapshot(groupState.members))
     syncConnections(
-        peer.instance,
+        peer,
         groupState.members
     )
 })

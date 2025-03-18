@@ -18,6 +18,7 @@ declare module "timesync" {
 		send(to: string, data: unknown, timeout?: number): Promise<unknown>
 		receive(from: string, data: unknown): void
 		readonly offset: number
+		options: TimeSyncOptions
 	}
 
 	// The main export is a function that creates a TimeSyncInstance

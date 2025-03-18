@@ -1,73 +1,56 @@
 <script lang="ts">
 import type { TimingState } from "../Metronome.svelte"
-import { peer } from "./peer-to-peer"
 import * as timesync from "timesync"
-import type { GroupState } from "./providers/GroupProvider.svelte"
+import type { TimeSyncInstance } from "timesync"
+import { onDestroy, onMount } from "svelte"
+import { getGroup } from "./providers/GroupProvider.svelte"
+import { getPeer } from "./providers/PeerProvider.svelte"
+import { send } from "./providers/PeerConnectionsProvider.svelte"
 
-const {
-	timingState = $bindable(),
-	groupState,
-}: { timingState: TimingState; groupState: GroupState } = $props()
+const { timingState = $bindable() }: { timingState: TimingState } = $props()
 
-$effect(() => {
-	if (groupState.connectionStatus !== "connected") {
-		timingState.offset = 0
-	}
+const peer = getPeer()
+const groupState = getGroup()
+let ts: TimeSyncInstance | undefined
 
-	if (groupState.isGroupLeader) {
-		// No sync needed
-		return
-	}
-
-	const ts = timesync.create({
-		peers: groupState.members.filter((id) => id !== peer.id),
+onMount(() => {
+	ts = timesync.create({
+		peers: [],
 	})
 
-	// Configure the send function to use PeerJS
 	ts.send = async (id: string, data: unknown) => {
-		const conn = peer.connect(id)
-		console.log("conn", conn)
-
-		if (!conn.open) {
-			throw new Error(`Not connected to peer: ${id}`)
-		}
-
-		await conn.send(data)
+		send(peer.instance, data, id)
 	}
 
-	// Set up sync event handlers
 	ts.on("sync", (state: unknown) => {
 		console.log(`Time sync ${state as "start" | "end"}`)
 	})
 
-	// Listen for offset changes
 	ts.on("change", (offsetValue: unknown) => {
 		const newOffset = offsetValue as number
 		timingState.offset = newOffset
 		console.log(`Time offset changed: ${newOffset}ms`)
 	})
 
-	peer.removeAllListeners("connection")
-	peer.on("connection", (conn) => {
-		conn.on("open", () => {
-			console.debug(`Connected with peer: ${conn.peer}`)
-		})
-
-		conn.on("data", (data) => {
-			// Handle timesync data
-			if (!groupState.isGroupLeader) {
-				ts.receive(conn.peer, data)
-			}
-		})
-
-		conn.on("close", () => {
-			console.debug(`Disconnected from peer: ${conn.peer}`)
-		})
-
-		conn.on("error", (err) => {
-			console.error(`Connection error with ${conn.peer}:`, err)
-		})
+	peer.subscribe("timesync", (from, data) => {
+		ts?.receive(from, data)
 	})
+})
+
+onDestroy(() => {
+	ts?.destroy()
+})
+
+$effect(() => {
+	if (!ts) throw new Error("Timesync not initialized")
+
+	if (groupState.isGroupLeader) {
+		// No sync needed
+		ts.options.peers = []
+		return
+	}
+
+	ts.options.peers = groupState.members.filter((id) => id !== peer.id)
 })
 </script>
 
