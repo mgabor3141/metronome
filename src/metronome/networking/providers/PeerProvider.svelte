@@ -34,6 +34,10 @@ const subscribers = $state<Record<P2PMessageType, PeerDataCallback<unknown>[]>>(
 	},
 )
 
+const notify = (topic: P2PMessageType, from: string, data: unknown) => {
+	subscribers[topic].forEach((callback) => callback(from, data))
+}
+
 const peer = $state<
 	Omit<PeerContext, "instance" | "id"> & Partial<PeerContext>
 >({
@@ -44,21 +48,14 @@ const peer = $state<
 				console.log("Connection opened", conn.peer)
 			})
 			.on("data", (data) => {
-				console.log(
-					"Data received",
-					conn.peer,
-					data as {
-						jsonrpc: string
-						id: number
-						method: P2PMessageType
-						params: unknown
-					},
-				)
-				subscribers[
-					(data as { method: P2PMessageType }).method ||
-						// We address unaddressed messages to timesync
-						"timesync"
-				].forEach((callback) => callback(conn.peer, data))
+
+				if ((data as { method: P2PMessageType }).method) {
+					notify((data as { method: P2PMessageType }).method, conn.peer, data)
+				} else if (Object.hasOwn(data as { result?: unknown }, "result")) {
+					notify("timesync", conn.peer, data)
+				} else {
+					console.warn("Unknown data", conn.peer, data)
+				}
 			})
 			.on("close", () => {
 				console.log("Connection closed", conn.peer)

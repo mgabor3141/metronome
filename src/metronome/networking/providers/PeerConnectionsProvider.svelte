@@ -2,13 +2,15 @@
 import type Peer from "peerjs"
 import type { DataConnection } from "peerjs"
 import { getGroup } from "./GroupProvider.svelte"
-import { getPeer, type PeerContext } from "./PeerProvider.svelte"
+import {
+	getPeer,
+	type P2PMessageType,
+	type PeerContext,
+} from "./PeerProvider.svelte"
 import { onDestroy } from "svelte"
 
 const getOpenConnections = (peer: Peer) => {
 	const allConnections = peer.connections as Record<string, DataConnection[]>
-
-	console.log(allConnections)
 
 	return Object.fromEntries(
 		Object.entries(allConnections)
@@ -17,7 +19,11 @@ const getOpenConnections = (peer: Peer) => {
 	) as Record<string, DataConnection>
 }
 
-export const broadcast = <T>(peer: Peer, data: T) => {
+export type P2PMessage<T> = {
+	method: P2PMessageType
+} & T
+
+export const broadcast = <T>(peer: Peer, data: P2PMessage<T>) => {
 	const connections = getOpenConnections(peer)
 	for (const conn of Object.values(connections)) {
 		conn.send(data)

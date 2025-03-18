@@ -47,6 +47,7 @@ $effect(() => {
 	if (groupState.isGroupLeader) {
 		// No sync needed
 		ts.options.peers = []
+		timingState.offset = 0
 		return
 	}
 
