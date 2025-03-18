@@ -2,7 +2,7 @@
  * WebSocket endpoint for metronome synchronization using astro-bun-websocket
  */
 import type { APIContext } from "astro"
-import type { MetronomeState as MetronomeStateType } from "../../components/Metronome.svelte"
+import type { MetronomeState as MetronomeStateType } from "../../metronome/Metronome.svelte"
 
 // Define message types
 interface BaseMessage {

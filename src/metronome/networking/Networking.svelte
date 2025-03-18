@@ -4,6 +4,7 @@ import PeerConnectionsProvider from "./providers/PeerConnectionsProvider.svelte"
 import PeerProvider from "./providers/PeerProvider.svelte"
 import TimeSync from "./TimeSync.svelte"
 
+// biome-ignore lint/style/useConst: <explanation>
 let { metronomeState = $bindable(), timingState = $bindable() } = $props()
 </script>
 

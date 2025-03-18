@@ -3,7 +3,7 @@
  */
 import type { APIRoute } from "astro"
 import { generateGroupCode } from "../../utils/code-utils"
-import type { GroupState } from "../../networking/Networking.svelte"
+import type { GroupStateUpdate } from "../../metronome/networking/providers/GroupProvider.svelte"
 
 // Type definitions
 interface Group {
@@ -79,13 +79,6 @@ const removeMemberFromGroup = (peerId: string): void => {
 		group.leader = newLeader
 		console.log(`Assigned new leader ${newLeader} for group ${groupCode}`)
 	}
-}
-
-export type GroupStateUpdate = Omit<
-	GroupState,
-	"connectionStatus" | "isGroupLeader"
-> & {
-	type: "groupUpdate"
 }
 
 /**

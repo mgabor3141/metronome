@@ -1,8 +1,7 @@
 <script lang="ts" module>
 import { getContext, onDestroy, onMount, setContext } from "svelte"
 import { getPeer } from "./PeerProvider.svelte"
-import { getGroupCode, saveGroupCode } from "../../utils/code-utils"
-import type { GroupStateUpdate } from "../../pages/api/group"
+import { getGroupCode, saveGroupCode } from "../../../utils/code-utils"
 
 const GROUP_CONTEXT_KEY = Symbol("group")
 
@@ -18,6 +17,13 @@ export type GroupState = {
 	members: string[]
 	isGroupLeader: boolean
 	connectionStatus: ConnectionStatus
+}
+
+export type GroupStateUpdate = Omit<
+	GroupState,
+	"connectionStatus" | "isGroupLeader"
+> & {
+	type: "groupUpdate"
 }
 </script>
 

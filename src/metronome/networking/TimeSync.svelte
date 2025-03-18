@@ -1,8 +1,8 @@
 <script lang="ts">
-import type { TimingState } from "../components/Metronome.svelte"
-import type { GroupState } from "./Networking.svelte"
+import type { TimingState } from "../Metronome.svelte"
 import { peer } from "./peer-to-peer"
 import * as timesync from "timesync"
+import type { GroupState } from "./providers/GroupProvider.svelte"
 
 const {
 	timingState = $bindable(),

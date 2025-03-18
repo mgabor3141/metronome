@@ -2,7 +2,7 @@
 /**
  * MetronomeUI component that handles the presentation layer for the metronome
  */
-import type { MetronomeState, PartialMetronomeState } from "./Metronome.svelte"
+import type { MetronomeState, PartialMetronomeState } from "../Metronome.svelte"
 
 // UI constants
 const MIN_BPM = 40
