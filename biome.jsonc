@@ -6,5 +6,12 @@
 		"formatter": {
 			"semicolons": "asNeeded"
 		}
+	},
+	"linter": {
+		"rules": {
+			"complexity": {
+				"noForEach": "off"
+			}
+		}
 	}
 }
