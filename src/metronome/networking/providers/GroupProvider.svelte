@@ -4,6 +4,7 @@ import { getPeer } from "./PeerProvider.svelte"
 import { getGroupCode, saveGroupCode } from "../../../utils/code-utils"
 
 const GROUP_CONTEXT_KEY = Symbol("group")
+const GROUP_URL_PARAM = "join"
 
 export const getGroup = () => {
 	return getContext<GroupState>(GROUP_CONTEXT_KEY)
@@ -44,11 +45,28 @@ const peer = getPeer()
 
 let websocket: WebSocket | null = null
 
+const getGroupCodeFromUrl = () => {
+	// Get group code from URL
+    const url = new URL(window.location.href);
+    const urlGroupCode = url.searchParams.get(GROUP_URL_PARAM);
+	if (urlGroupCode) {
+		saveGroupCode(urlGroupCode)
+
+		// Remove from URL
+		url.searchParams.delete(GROUP_URL_PARAM);
+		window.history.replaceState(null, '', url.toString());
+	}
+	return urlGroupCode
+}
+
 onMount(() => {
 	// Close any existing connection
 	if (websocket && websocket.readyState === WebSocket.OPEN) {
 		websocket.close()
 	}
+
+	// Get group code from URL if present
+	const urlGroupCode = getGroupCodeFromUrl()
 
 	// Check if we have a stored group code
 	const storedGroupCode = getGroupCode()
@@ -71,7 +89,7 @@ onMount(() => {
 			JSON.stringify({
 				type: "register",
 				peerId: peer.id,
-				groupCode: storedGroupCode,
+				groupCode: urlGroupCode || storedGroupCode,
 			}),
 		)
 
