@@ -16,7 +16,7 @@ export type DeepPartial<T> = T extends object ? {
  * @param obj2 - Second object to compare
  * @returns True if objects are deeply equal, false otherwise
  */
-function deepEqual(obj1: unknown, obj2: unknown): boolean {
+export function deepEqual(obj1: unknown, obj2: unknown): boolean {
     // If both are primitive values or one of them is null/undefined
     if (obj1 === obj2) return true;
     if (obj1 === null || obj2 === null) return false;

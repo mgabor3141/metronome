@@ -16,6 +16,8 @@ let ts: TimeSyncInstance | undefined
 onMount(() => {
 	ts = timesync.create({
 		peers: [],
+		repeat: 5,
+		interval: 30_000,
 	})
 
 	ts.send = async (id: string, data: unknown) => {

@@ -4,52 +4,48 @@
 
 /**
  * Calculate the reference time based on current playhead position
- * @param playhead - Current playhead position from Tone.getTransport().immediate()
- * @param bpm - Beats per minute
- * @param beatsPerMeasure - Number of beats per measure
+ * @param playhead - Normalized playhead position (0-1) where 1 represents a full measure
+ * @param wallClockOffset - Offset between local and remote wall clocks in milliseconds (positive if remote is ahead)
  * @returns The calculated reference time in milliseconds
  */
 export const calculateReferenceTime = (
 	playhead: number,
-	bpm: number,
-	beatsPerMeasure: number,
+	wallClockOffset = 0,
 ): number => {
-	const beatLength = 60 / bpm
-	const measureLength = beatLength * beatsPerMeasure
-	const currentPosition = playhead % measureLength
-
-	return new Date().getTime() - currentPosition * 1000
+	return new Date().getTime() - playhead * 1000 - wallClockOffset
 }
 
 /**
- * Calculate the offset needed to sync with a provided reference time
- * @param referenceTime - The reference time to sync with (in milliseconds)
- * @param currentPlayhead - Current playhead position from Tone.getTransport().immediate()
+ * Calculate the current playhead position based on a reference time
+ *
+ * This function answers: "Where should the playhead be now if we want to
+ * start playback at the same position that the other client is playing at currently?"
+ *
+ * @param referenceTime - The reference time when playback started (in milliseconds)
  * @param bpm - Beats per minute
  * @param beatsPerMeasure - Number of beats per measure
  * @param wallClockOffset - Offset between local and remote wall clocks in milliseconds (positive if remote is ahead)
- * @returns The offset in seconds needed to sync with the reference time
+ * @returns The normalized playhead position (0-1) where the playback should be now
  */
-export const calculateSyncOffset = (
+export const calculateSyncedPlayheadPosition = (
 	referenceTime: number,
-	currentPlayhead: number,
-	bpm: number,
-	beatsPerMeasure: number,
+	measureLength: number,
 	wallClockOffset = 0,
 ): number => {
-	// Calculate the beat and measure length in seconds
-	const beatLength = 60 / bpm
-	const measureLength = beatLength * beatsPerMeasure
-
-	// Calculate where we are in the current measure
-	const currentPositionInMeasure = currentPlayhead % measureLength
-
-	// Calculate where we should be based on the reference time
-	// Adjust the current time by the wall clock offset
+	// Calculate elapsed time since reference, adjusted for wall clock offset
 	const currentTime = new Date().getTime() - wallClockOffset
 	const elapsedTimeSinceReference = (currentTime - referenceTime) / 1000
-	const targetPositionInMeasure = elapsedTimeSinceReference % measureLength
 
-	// Calculate the offset (how much we need to adjust)
-	return targetPositionInMeasure - currentPositionInMeasure
+	const result = elapsedTimeSinceReference % measureLength
+	const resultPositive = result < 0 ? measureLength + result : result
+
+	console.log("currentTime", {
+		currentTime,
+		referenceTime,
+		elapsedTimeSinceReference,
+		measureLength,
+		result,
+	})
+
+	return resultPositive
 }

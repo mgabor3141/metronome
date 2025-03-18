@@ -73,13 +73,11 @@ const updateState = (partialState: PartialMetronomeState): void => {
 	const newState = deepMergeIfChanged(metronomeState, partialState)
 	if (newState !== metronomeState) {
 		if (hasUserInteracted) {
-			const playhead = Tone.getTransport().immediate()
+			const playhead = Tone.getTransport().progress
 			newState.referenceTime = calculateReferenceTime(
 				playhead,
-				newState.bpm,
-				newState.timeSignature.beatsPerMeasure,
+				timingState.offset,
 			)
-			console.log("newState.referenceTime", newState.referenceTime)
 		}
 
 		metronomeState = newState

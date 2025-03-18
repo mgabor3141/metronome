@@ -6,7 +6,7 @@
 import * as Tone from "tone"
 import type { MetronomeState, TimingState } from "./Metronome.svelte"
 import { onDestroy } from "svelte"
-import { calculateSyncOffset } from "../utils/timing-utils"
+import { calculateSyncedPlayheadPosition } from "../utils/timing-utils"
 
 interface MetronomeAudioProps {
 	metronomeState: MetronomeState
@@ -21,12 +21,11 @@ const NOTE_DURATION = 0.1
 const ACCENT_NOTE = "C5"
 const REGULAR_NOTE = "G4"
 const ACCENT_VELOCITY = 0.7
-const REGULAR_VELOCITY = 0.5
+const REGULAR_VELOCITY = 0.6
 
 // Audio state
 type AudioState = {
 	lastBpm: number
-	currentBeat: number
 	lastTimeSignature: {
 		beatsPerMeasure: number
 		beatUnit: number
@@ -37,7 +36,6 @@ type AudioState = {
 
 const audioState = $state<AudioState>({
 	lastBpm: props.metronomeState.bpm,
-	currentBeat: 0,
 	lastTimeSignature: {
 		beatsPerMeasure: props.metronomeState.timeSignature.beatsPerMeasure,
 		beatUnit: props.metronomeState.timeSignature.beatUnit,
@@ -49,7 +47,10 @@ const audioState = $state<AudioState>({
 // References to Tone.js objects - defined outside of functions to persist between renders
 let audioContext: AudioContext | null = null
 let synth: Tone.Synth | null = null
-let loop: Tone.Loop | null = null
+
+const part = new Tone.Part((time, { note, velocity }) => {
+	playBeat(time, note, velocity)
+}, [])
 
 /**
  * Creates a synth instance for sound generation if it doesn't exist
@@ -63,17 +64,6 @@ const getSynth = (): Tone.Synth => {
 		}).toDestination()
 	}
 	return synth
-}
-
-/**
- * Plays a single beat with the given parameters
- */
-const playBeat = (time: number, beatInfo: { isAccented: boolean }): void => {
-	const currentSynth = getSynth()
-	const note = beatInfo.isAccented ? ACCENT_NOTE : REGULAR_NOTE
-	const velocity = beatInfo.isAccented ? ACCENT_VELOCITY : REGULAR_VELOCITY
-
-	currentSynth.triggerAttackRelease(note, NOTE_DURATION, time, velocity)
 }
 
 /**
@@ -96,83 +86,78 @@ const initAudio = async (): Promise<void> => {
 }
 
 /**
- * Creates or updates the metronome loop based on current settings
+ * Plays a single beat with the given parameters
  */
-const createMetronomeLoop = (): Tone.Loop => {
-	// Create new pattern
-	const newLoop = new Tone.Loop((time: number) => {
-		if (
-			audioState.currentBeat >=
-			props.metronomeState.timeSignature.beatsPerMeasure
-		) {
-			audioState.currentBeat = 0
-		}
+const playBeat = (time: number, note: string, velocity: number): void => {
+	const currentSynth = getSynth()
 
-		playBeat(time, { isAccented: audioState.currentBeat === 0 })
-		audioState.currentBeat++
-	}, `${props.metronomeState.timeSignature.beatUnit}n`)
+	currentSynth.triggerAttackRelease(note, NOTE_DURATION, time, velocity)
+}
 
-	return newLoop
+/**
+ * Creates a metronome sequence for the full measure
+ * Each beat in the measure will be played, with the first beat accented
+ */
+const createMetronomeSequence = () => {
+	const { beatsPerMeasure, beatUnit } = props.metronomeState.timeSignature
+
+	// Create an array of beat indices for the sequence
+	// Each element represents a beat in the measure
+	return Array.from({ length: beatsPerMeasure }, (_, i) => ({
+		time: { [`${beatUnit}n`]: i },
+		note: i === 0 ? ACCENT_NOTE : REGULAR_NOTE,
+		velocity: i === 0 ? ACCENT_VELOCITY : REGULAR_VELOCITY,
+	}))
 }
 
 /**
  * Starts the metronome with the correct timing based on time synchronization
  */
 const startMetronome = async (): Promise<void> => {
-	try {
-		// Initialize audio if needed (only on user gesture)
-		if (!audioState.audioInitialized) {
-			await initAudio()
-		}
-
-		// Make sure audio context is running
-		if (audioContext?.state !== "running") {
-			await Tone.start()
-		}
-
-		// Stop any existing loop
-		if (loop) {
-			loop.stop().dispose()
-		}
-
-		// Create a new loop with current settings
-		loop = createMetronomeLoop()
-
-		// Set the tempo
-		const transport = Tone.getTransport()
-		transport.bpm.value = props.metronomeState.bpm
-
-		// Start the loop and transport with the calculated delay
-		loop.start(
-			calculateSyncOffset(
-				props.metronomeState.referenceTime,
-				0,
-				props.metronomeState.bpm,
-				props.metronomeState.timeSignature.beatsPerMeasure,
-				props.timingState.offset,
-			),
-		)
-		transport.start()
-
-		// Update playback state
-		audioState.lastBpm = props.metronomeState.bpm
-		audioState.lastTimeSignature = { ...props.metronomeState.timeSignature }
-		audioState.lastIsPlaying = true
-	} catch (error) {
-		console.error("Error starting metronome:", error)
+	// Initialize audio if needed (only on user gesture)
+	if (!audioState.audioInitialized) {
+		await initAudio()
 	}
+
+	// Make sure audio context is running
+	if (audioContext?.state !== "running") {
+		await Tone.start()
+	}
+
+	// Set the tempo
+	const transport = Tone.getTransport()
+	transport.bpm.value = props.metronomeState.bpm
+
+	// Create a new sequence with current settings
+	const sequence = createMetronomeSequence()
+	part.clear()
+	sequence.forEach((beat) => {
+		part.add(beat)
+	})
+
+	// Start the sequence and transport with the calculated delay
+	part.start(0)
+	transport.position = calculateSyncedPlayheadPosition(
+		props.metronomeState.referenceTime,
+		part.toSeconds("1m"),
+		props.timingState.offset,
+	)
+	transport.loop = true
+	transport.loopStart = 0
+	transport.loopEnd = "1m"
+	transport.start()
+
+	// Update playback state
+	audioState.lastBpm = props.metronomeState.bpm
+	audioState.lastTimeSignature = { ...props.metronomeState.timeSignature }
+	audioState.lastIsPlaying = true
 }
 
 /**
  * Stops the metronome playback
  */
 const stopMetronome = (): void => {
-	if (loop) {
-		loop.stop()
-	}
-
-	const transport = Tone.getTransport()
-	transport.stop()
+	Tone.getTransport().stop()
 	audioState.lastIsPlaying = false
 }
 
@@ -199,17 +184,6 @@ const updateMetronome = async (): Promise<void> => {
 	}
 }
 
-// Clean up on component destroy
-onDestroy(() => {
-	// Stop and clean up loop
-	if (loop) {
-		loop.stop().dispose()
-		loop = null
-	}
-
-	// Don't dispose synth to prevent memory leaks with rapid component re-renders
-})
-
 // Watch for state changes
 $effect(() => {
 	// Skip if user hasn't interacted yet
@@ -226,6 +200,23 @@ $effect(() => {
 	// Handle other state changes while playing
 	else if (props.metronomeState.isPlaying) {
 		updateMetronome()
+	}
+})
+
+$effect(() => {
+	Tone.getTransport().position = calculateSyncedPlayheadPosition(
+		props.metronomeState.referenceTime,
+		Tone.getTransport().toSeconds("1m"),
+		props.timingState.offset,
+	)
+})
+
+// Clean up on component destroy
+onDestroy(() => {
+	// Stop and clean up sequence
+	if (part) {
+		part.stop().dispose()
+		Tone.getContext().dispose()
 	}
 })
 </script>
