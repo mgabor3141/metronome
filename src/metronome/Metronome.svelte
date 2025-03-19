@@ -40,15 +40,12 @@ export type PartialMetronomeState = DeepPartial<MetronomeState>
  * Main Metronome component
  * Manages state and delegates UI rendering to child components
  */
-import { deepMergeIfChanged } from "../utils/object-utils"
-import { getReferenceTime } from "../utils/timing-utils"
-import * as Tone from "tone"
-import Audio from "./Audio.svelte"
-import Controls from "./Controls/Controls.svelte"
-import Networking from "./networking/Networking.svelte"
+import { deepMergeIfChanged } from "../utils/object-utils";
+import Audio from "./Audio.svelte";
+import Controls from "./Controls/Controls.svelte";
+import Networking from "./networking/Networking.svelte";
 
-// Raw state needed to trigger dependencies
-let metronomeState = $state.raw<MetronomeState>({
+let metronomeState = $state<MetronomeState>({
 	bpm: 120,
 	timeSignature: {
 		beatsPerMeasure: 4,
@@ -69,29 +66,31 @@ let hasUserInteracted = $state(false)
  * Single handler for all state updates
  * Takes a partial state object and merges it with the current state
  */
-const updateState = (partialState: PartialMetronomeState): void => {
+const localStateUpdate = (partialState: PartialMetronomeState): void => {
 	// Update the state only if there are actual changes
-	const newState = deepMergeIfChanged(metronomeState, partialState)
-	if (newState !== metronomeState) {
-		newState.referenceTime = undefined
-		metronomeState = newState
-	}
+	metronomeState = deepMergeIfChanged(metronomeState, partialState)
+	metronomeState.referenceTime = undefined
 }
 
 /**
  * Toggle the playing state of the metronome
  */
 const togglePlayback = (firstLocalPlay: boolean = false): void => {
-	updateState({
-		isPlaying: !metronomeState.isPlaying || firstLocalPlay,
-	})
+	if (firstLocalPlay && metronomeState.isPlaying) {
+		// We align with the already playing reference time (not going through localStateUpdate)
+		metronomeState.isPlaying = true
+	} else {
+		localStateUpdate({
+			isPlaying: !metronomeState.isPlaying,
+		})
+	}
 }
 </script>
 
 <Controls
 	{metronomeState}
 	{hasUserInteracted}
-	onStateUpdate={updateState}
+	onStateUpdate={localStateUpdate}
 	onTogglePlayback={() => {
 		togglePlayback(!hasUserInteracted)
 		hasUserInteracted = true

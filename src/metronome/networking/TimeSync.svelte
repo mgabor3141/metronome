@@ -18,6 +18,7 @@ onMount(() => {
 		peers: [],
 		repeat: 8,
 		interval: 30_000,
+		now: () => performance.timeOrigin + performance.now(),
 	})
 
 	timingState.offset = ts.offset
@@ -59,9 +60,9 @@ $effect(() => {
 	if (!ts) throw new Error("Timesync not initialized")
 
 	if (groupState.isGroupLeader) {
-		// No sync needed
+		// Leader syncs with noone
+		// Note that in case of leader migration the previous offset remains in ts internally and our state
 		ts.options.peers = []
-		timingState.offset = 0
 		return
 	}
 
@@ -69,10 +70,10 @@ $effect(() => {
 })
 </script>
 
-<div class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
-	<p>Current time: {currentTime.toLocaleString()}</p>
-	<p>Current time: {currentGlobalTime.toLocaleString()}</p>
-	<p>Current time: {currentOtherGlobalTime.toLocaleString()}</p>
+<div class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center font-mono">
+	<p>Local time:- {currentTime.toLocaleString()}</p>
+	<p>ts.now time: {currentGlobalTime.toLocaleString()}</p>
+	<p>Offset time: {currentOtherGlobalTime.toLocaleString()}</p>
 	<p>Time offset: {timingState.offset}ms</p>
-	<button onclick={() => ts?.sync()}>Sync Now</button>
+	<button class="cursor-pointer text-gray-500 dark:text-gray-400 text-sm inline-block border active:scale-95" onclick={() => ts?.sync()}>Sync Now</button>
 </div>

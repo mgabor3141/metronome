@@ -17,6 +17,12 @@ export default defineConfig({
 	server: {
 		host: true, // Allow connections from network
 		port: 4321, // Default port
+		headers: {
+			// Required for high resolution time
+			// See: https://developer.mozilla.org/en-US/docs/Web/API/DOMHighResTimeStamp
+			"Cross-Origin-Opener-Policy": "same-origin",
+			"Cross-Origin-Embedder-Policy": "require-corp",
+		},
 	},
 
 	// Use astro-bun-websocket as the adapter

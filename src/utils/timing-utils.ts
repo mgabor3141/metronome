@@ -1,41 +1,103 @@
+import * as Tone from "tone"
+
 /**
- * Timing utilities for metronome calculations
+ * Returns the current time in milliseconds, accounting for the time origin and the audio context time
+ * @returns The current time in milliseconds
  */
+export const now = () =>
+	performance.timeOrigin +
+	// @ts-expect-error I promise you that this exists, I'm going to use it
+	Tone.getContext().rawContext._nativeAudioContext.getOutputTimestamp()
+		.performanceTime
 
 /**
  * Calculate the reference time based on current playhead position
- * @param transportSeconds - Current playhead position in seconds
- * @param wallClockOffset - Offset between local and remote wall clocks in milliseconds (positive if remote is ahead)
- * @returns The calculated reference time in milliseconds
+ *
+ * This function answers: "What's the exact timestamp of the first click?"
+ *
+ * @param transportSeconds - The current playhead position in seconds
+ * @param wallClockOffset - The difference between local and remote clocks in milliseconds
+ * @returns The reference time in milliseconds
  */
 export const getReferenceTime = (
 	transportSeconds: number,
-	wallClockOffset = 0,
-): number => new Date().getTime() + wallClockOffset - transportSeconds * 1000
+	wallClockOffset: number,
+): number => {
+	// Network synced wall clock time
+	const currentTime = now() + wallClockOffset
+
+	// Get audio context look-ahead time in seconds
+	const lookAheadSeconds = Tone.getContext().lookAhead
+
+	// Get output latency from native audio context in seconds
+	const audioLatencySeconds =
+		// @ts-expect-error This property exists but is not typed in Tone.js
+		Tone.getContext().rawContext._nativeAudioContext.outputLatency
+
+	// Calculate total scheduling offset in seconds
+	const schedulingOffsetSeconds =
+		transportSeconds + lookAheadSeconds + audioLatencySeconds
+
+	// Calculate and return the final reference time in milliseconds
+	return currentTime + schedulingOffsetSeconds * 1000
+}
 
 /**
  * Calculate the current playhead position based on a reference time
  *
  * This function answers: "Where should the playhead be now if we want to
- * start playback at the same position that the other client is playing at currently?"
+ * have the first click at the reference timestamp?"
  *
  * @param referenceTime - The reference time when playback started (in milliseconds)
  * @param bpm - Beats per minute
  * @param beatsPerMeasure - Number of beats per measure
  * @param wallClockOffset - Offset between local and remote wall clocks in milliseconds (positive if remote is ahead)
- * @returns The normalized playhead position (0-1) where the playback should be now
+ * @returns The playhead position in seconds
  */
-export const getTransportSeconds = (
+export const getTransportPositionSeconds = (
 	referenceTime: number,
 	measureLengthSeconds: number,
-	wallClockOffset = 0,
+	wallClockOffset: number,
+	optionalStartDelay = 0,
 ): number => {
-	// Calculate elapsed time since reference, adjusted for wall clock offset
-	const currentTime = new Date().getTime() + wallClockOffset
+	// Network synced wall clock time
+	const currentTime = now() + wallClockOffset
+
+	// Accounting for network latency
 	const timeSinceReferenceSeconds = (currentTime - referenceTime) / 1000
+	const audioLatencySeconds =
+		// @ts-expect-error This property exists but is not typed in Tone.js
+		Tone.getContext().rawContext._nativeAudioContext.outputLatency
 
-	const result = timeSinceReferenceSeconds % measureLengthSeconds
-	const resultPositive = result < 0 ? result + measureLengthSeconds : result
+	// Tone.js scheduled lookahead
+	const lookaheadSeconds = Tone.getContext().lookAhead
 
-	return resultPositive
+	const transportSeconds =
+		timeSinceReferenceSeconds -
+		lookaheadSeconds -
+		audioLatencySeconds -
+		optionalStartDelay
+
+	// Modulo transportSeconds by measure length
+	const transportSecondsModulo = transportSeconds % measureLengthSeconds
+
+	// Ensure transportSeconds is positive
+	const transportSecondsPositive =
+		transportSecondsModulo < 0
+			? transportSecondsModulo + measureLengthSeconds
+			: transportSecondsModulo
+
+	console.log("getTransportSeconds", {
+		currentTime,
+		timeSinceReferenceSeconds,
+		measureLengthSeconds,
+		wallClockOffset,
+		lookaheadSeconds,
+		transportSeconds,
+		transportSecondsModulo,
+		transportSecondsPositive,
+		audioLatencySeconds,
+	})
+
+	return transportSecondsPositive
 }
