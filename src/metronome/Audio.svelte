@@ -5,8 +5,8 @@
  */
 import * as Tone from "tone"
 import type { MetronomeState, TimingState } from "./Metronome.svelte"
-import { onDestroy } from "svelte"
-import { calculateSyncedPlayheadPosition } from "../utils/timing-utils"
+import { onDestroy, onMount } from "svelte"
+import { getTransportSeconds } from "../utils/timing-utils"
 
 interface MetronomeAudioProps {
 	metronomeState: MetronomeState
@@ -74,8 +74,11 @@ const initAudio = async (): Promise<void> => {
 	if (audioState.audioInitialized) return
 
 	try {
+		if (Tone.getContext().state === "closed") {
+			Tone.setContext(new AudioContext())
+		}
+
 		// Initialize audio context
-		await Tone.start()
 		audioContext = Tone.getContext().rawContext as AudioContext
 		audioState.audioInitialized = true
 		console.log("Audio context initialized successfully")
@@ -127,6 +130,7 @@ const startMetronome = async (): Promise<void> => {
 	// Set the tempo
 	const transport = Tone.getTransport()
 	transport.bpm.value = props.metronomeState.bpm
+	transport.timeSignature = [props.metronomeState.timeSignature.beatsPerMeasure, props.metronomeState.timeSignature.beatUnit]
 
 	// Create a new sequence with current settings
 	const sequence = createMetronomeSequence()
@@ -137,11 +141,13 @@ const startMetronome = async (): Promise<void> => {
 
 	// Start the sequence and transport with the calculated delay
 	part.start(0)
-	transport.position = calculateSyncedPlayheadPosition(
+	transport.position = getTransportSeconds(
 		props.metronomeState.referenceTime,
-		part.toSeconds("1m"),
+		props.metronomeState.timeSignature.beatsPerMeasure *
+			(60 / props.metronomeState.bpm),
 		props.timingState.offset,
 	)
+
 	transport.loop = true
 	transport.loopStart = 0
 	transport.loopEnd = "1m"
@@ -204,12 +210,13 @@ $effect(() => {
 })
 
 $effect(() => {
-	Tone.getTransport().position = calculateSyncedPlayheadPosition(
+	Tone.getTransport().position = getTransportSeconds(
 		props.metronomeState.referenceTime,
-		Tone.getTransport().toSeconds("1m"),
+		props.metronomeState.timeSignature.beatsPerMeasure *
+			(60 / props.metronomeState.bpm),
 		props.timingState.offset,
 	)
-})
+})	
 
 // Clean up on component destroy
 onDestroy(() => {

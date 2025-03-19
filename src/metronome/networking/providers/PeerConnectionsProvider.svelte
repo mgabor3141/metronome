@@ -24,6 +24,7 @@ export type P2PMessage<T> = {
 } & T
 
 export const broadcast = <T>(peer: Peer, data: P2PMessage<T>) => {
+	console.debug("Broadcasting", data)
 	const connections = getOpenConnections(peer)
 	for (const conn of Object.values(connections)) {
 		conn.send(data)
@@ -31,7 +32,7 @@ export const broadcast = <T>(peer: Peer, data: P2PMessage<T>) => {
 }
 
 export const send = <T>(peer: Peer, data: T, target: string) => {
-	console.log("Sending to", target, data)
+	console.debug("Sending to", target, data)
 	const allConnections = peer.connections as Record<string, DataConnection[]>
 
 	const conn = allConnections[target]?.find((conn) => conn.open)
@@ -85,7 +86,7 @@ const peer = getPeer()
 const groupState = getGroup()
 
 $effect(() => {
-    console.log("Syncing connections", $state.snapshot(groupState.members))
+    console.log("Updating connection pool", $state.snapshot(groupState.members))
     syncConnections(
         peer,
         groupState.members

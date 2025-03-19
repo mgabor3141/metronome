@@ -16,7 +16,7 @@ let ts: TimeSyncInstance | undefined
 onMount(() => {
 	ts = timesync.create({
 		peers: [],
-		repeat: 5,
+		repeat: 8,
 		interval: 30_000,
 	})
 
@@ -25,13 +25,13 @@ onMount(() => {
 	}
 
 	ts.on("sync", (state: unknown) => {
-		console.log(`Time sync ${state as "start" | "end"}`)
+		console.debug(`Time sync ${state as "start" | "end"}`)
 	})
 
 	ts.on("change", (offsetValue: unknown) => {
 		const newOffset = offsetValue as number
 		timingState.offset = newOffset
-		console.log(`Time offset changed: ${newOffset}ms`)
+		console.log(`Wall clock offset changed: ${newOffset}ms`)
 	})
 
 	peer.subscribe("timesync", (from, data) => {
@@ -43,6 +43,16 @@ onDestroy(() => {
 	ts?.destroy()
 })
 
+let currentTime = $state(new Date())
+let currentGlobalTime = $state(new Date())
+let currentOtherGlobalTime = $state(new Date())
+
+setInterval(() => {
+	currentTime = new Date()
+	currentGlobalTime = new Date(ts?.now() ?? 0)
+	currentOtherGlobalTime = new Date(new Date().getTime() + timingState.offset)
+}, 100)
+
 $effect(() => {
 	if (!ts) throw new Error("Timesync not initialized")
 
@@ -53,10 +63,14 @@ $effect(() => {
 		return
 	}
 
-	ts.options.peers = groupState.members.filter((id) => id !== peer.id)
+	ts.options.peers = [groupState.leader]
 })
 </script>
 
 <div class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
+	<p>Current time: {currentTime.toLocaleString()}</p>
+	<p>Current time: {currentGlobalTime.toLocaleString()}</p>
+	<p>Current time: {currentOtherGlobalTime.toLocaleString()}</p>
 	<p>Time offset: {timingState.offset}ms</p>
+	<button onclick={() => ts?.sync()}>Sync Now</button>
 </div>

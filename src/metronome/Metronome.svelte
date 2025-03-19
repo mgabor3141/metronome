@@ -36,7 +36,7 @@ export type PartialMetronomeState = DeepPartial<MetronomeState>
  * Manages state and delegates UI rendering to child components
  */
 import { deepMergeIfChanged } from "../utils/object-utils"
-import { calculateReferenceTime } from "../utils/timing-utils"
+import { getReferenceTime } from "../utils/timing-utils"
 import * as Tone from "tone"
 import Audio from "./Audio.svelte"
 import Controls from "./Controls/Controls.svelte"
@@ -73,9 +73,19 @@ const updateState = (partialState: PartialMetronomeState): void => {
 	const newState = deepMergeIfChanged(metronomeState, partialState)
 	if (newState !== metronomeState) {
 		if (hasUserInteracted) {
-			const playhead = Tone.getTransport().progress
-			newState.referenceTime = calculateReferenceTime(
-				playhead,
+			console.log("Updating state", newState)
+			console.log("Current time", Tone.getTransport().progress, Tone.getTransport().seconds)
+
+			// We set BPM early so that we can get an accurate reference time
+			Tone.getTransport().bpm.value = newState.bpm
+
+			console.log("New time", Tone.getTransport().progress, Tone.getTransport().seconds)
+
+			const beatLength = 60 / newState.bpm
+			const measureLength = beatLength * newState.timeSignature.beatsPerMeasure
+
+			newState.referenceTime = getReferenceTime(
+				Tone.getTransport().progress * measureLength,
 				timingState.offset,
 			)
 		}
@@ -88,10 +98,9 @@ const updateState = (partialState: PartialMetronomeState): void => {
  * Toggle the playing state of the metronome
  */
 const togglePlayback = (firstLocalPlay: boolean = false): void => {
-	metronomeState = {
-		...metronomeState,
+	updateState({
 		isPlaying: !metronomeState.isPlaying || firstLocalPlay,
-	}
+	})
 }
 </script>
 

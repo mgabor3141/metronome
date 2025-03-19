@@ -99,7 +99,7 @@ onMount(() => {
 	// Handle incoming messages
 	websocket.onmessage = async (event) => {
 		const message: GroupStateUpdate = JSON.parse(event.data)
-		console.log("Received WebSocket message:", message)
+		console.debug("Received WebSocket message:", message)
 
 		// Handle group updates
 		if (message.type === "groupUpdate") {
@@ -133,8 +133,9 @@ onDestroy(() => {
 {#if groupState.connectionStatus !== "connected"}
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">Joining group...</p>
 {:else}
-	<p>{groupState.groupCode}</p>
-	<p>{groupState.isGroupLeader ? "Leader" : "Member"}</p>
-	<p>{groupState.members.length} members</p>
+	<div class="text-gray-500 dark:text-gray-400 mt-4 text-center">
+		<p>{groupState.isGroupLeader ? "Leader" : "Follower"}</p>
+		<p>{groupState.members.length} members in group</p>
+	</div>
     {@render children()}
 {/if}

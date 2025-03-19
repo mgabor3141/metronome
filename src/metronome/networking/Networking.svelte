@@ -13,7 +13,7 @@ let { metronomeState = $bindable(), timingState = $bindable() } = $props()
 	<GroupProvider>
 		<PeerConnectionsProvider>
 			<TimeSync bind:timingState />
-			<MetronomeStateSync bind:metronomeState {timingState} />
+			<MetronomeStateSync bind:metronomeState />
 		</PeerConnectionsProvider>
 	</GroupProvider>
 </PeerProvider>

@@ -48,6 +48,7 @@ const peer = $state<
 				console.log("Connection opened", conn.peer)
 			})
 			.on("data", (data) => {
+				console.debug("Received from", conn.peer, data)
 
 				if ((data as { method: P2PMessageType }).method) {
 					notify((data as { method: P2PMessageType }).method, conn.peer, data)
@@ -95,9 +96,6 @@ onMount(() => {
 
 	newPeer.on("error", (err) => {
 		console.error("PeerJS error:", err)
-		peer.instance = undefined
-		peer.id = undefined
-		throw err
 	})
 })
 
@@ -111,6 +109,8 @@ const { children } = $props()
 {#if !peer.id}
 	<p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">Connecting...</p>
 {:else}
-	<p>{peer.id}</p>
+	<div class="text-gray-500 dark:text-gray-400 mt-4 text-center">
+		<p>{peer.id}</p>
+	</div>
 	{@render children()}
 {/if}

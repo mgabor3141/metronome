@@ -1,23 +1,19 @@
 <script lang="ts">
 import { onMount } from "svelte"
-import type { MetronomeState, TimingState } from "../Metronome.svelte"
+import type { MetronomeState } from "../Metronome.svelte"
 import { broadcast } from "./providers/PeerConnectionsProvider.svelte"
 import { getPeer } from "./providers/PeerProvider.svelte"
-import * as Tone from "tone"
-import { calculateReferenceTime } from "../../utils/timing-utils"
 import { deepEqual } from "../../utils/object-utils"
 
-let {
-	metronomeState = $bindable(),
-	timingState,
-}: { metronomeState: MetronomeState; timingState: TimingState } = $props()
+let { metronomeState = $bindable() }: { metronomeState: MetronomeState } =
+	$props()
 
 const peer = getPeer()
 
 let lastKnownState = $state<MetronomeState | undefined>(undefined)
 
 onMount(() => {
-	peer.subscribe("metronomeState", (from, data) => {
+	peer.subscribe("metronomeState", (_, data) => {
 		lastKnownState = (data as { state: MetronomeState }).state
 		metronomeState = lastKnownState
 	})
