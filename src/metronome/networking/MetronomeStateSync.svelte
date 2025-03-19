@@ -10,7 +10,7 @@ let { metronomeState = $bindable() }: { metronomeState: MetronomeState } =
 
 const peer = getPeer()
 
-let lastKnownState = $state<MetronomeState | undefined>(undefined)
+let lastKnownState = $state<MetronomeState | undefined>()
 
 onMount(() => {
 	peer.subscribe("metronomeState", (_, data) => {
@@ -20,7 +20,10 @@ onMount(() => {
 })
 
 $effect(() => {
-	if (!deepEqual(metronomeState, lastKnownState)) {
+	if (
+		metronomeState.referenceTime &&
+		!deepEqual(metronomeState, lastKnownState)
+	) {
 		lastKnownState = metronomeState
 		broadcast(peer.instance, {
 			method: "metronomeState",

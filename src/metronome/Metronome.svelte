@@ -15,7 +15,12 @@ export interface MetronomeState {
 	bpm: number
 	timeSignature: TimeSignature
 	isPlaying: boolean
-	referenceTime: number
+
+	/**
+	 * Time of the "one" beat of the current measure
+	 * Undefined until the local playback actually picks up the update
+	 */
+	referenceTime: number | undefined
 }
 
 export type TimingState = {
@@ -50,11 +55,7 @@ let metronomeState = $state.raw<MetronomeState>({
 		beatUnit: 4,
 	},
 	isPlaying: false,
-
-	/**
-	 * Time of the "one" beat of the current measure
-	 */
-	referenceTime: Date.now(),
+	referenceTime: undefined,
 })
 
 let timingState = $state<TimingState>({
@@ -72,24 +73,7 @@ const updateState = (partialState: PartialMetronomeState): void => {
 	// Update the state only if there are actual changes
 	const newState = deepMergeIfChanged(metronomeState, partialState)
 	if (newState !== metronomeState) {
-		if (hasUserInteracted) {
-			console.log("Updating state", newState)
-			console.log("Current time", Tone.getTransport().progress, Tone.getTransport().seconds)
-
-			// We set BPM early so that we can get an accurate reference time
-			Tone.getTransport().bpm.value = newState.bpm
-
-			console.log("New time", Tone.getTransport().progress, Tone.getTransport().seconds)
-
-			const beatLength = 60 / newState.bpm
-			const measureLength = beatLength * newState.timeSignature.beatsPerMeasure
-
-			newState.referenceTime = getReferenceTime(
-				Tone.getTransport().progress * measureLength,
-				timingState.offset,
-			)
-		}
-
+		newState.referenceTime = undefined
 		metronomeState = newState
 	}
 }
@@ -117,7 +101,7 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 <Networking bind:metronomeState bind:timingState />
 
 <Audio
-	{metronomeState}
+	bind:metronomeState
 	{hasUserInteracted}
 	{timingState}
 />

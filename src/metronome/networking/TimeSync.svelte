@@ -20,6 +20,8 @@ onMount(() => {
 		interval: 30_000,
 	})
 
+	timingState.offset = ts.offset
+
 	ts.send = async (id: string, data: unknown) => {
 		send(peer.instance, data, id)
 	}

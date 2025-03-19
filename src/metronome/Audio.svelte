@@ -14,7 +14,8 @@ interface MetronomeAudioProps {
 	timingState: TimingState
 }
 
-const props: MetronomeAudioProps = $props()
+let { metronomeState = $bindable(), ...props }: MetronomeAudioProps = $props()
+const { hasUserInteracted, timingState } = props
 
 // Constants for audio settings
 const NOTE_DURATION = 0.1
@@ -35,10 +36,10 @@ type AudioState = {
 }
 
 const audioState = $state<AudioState>({
-	lastBpm: props.metronomeState.bpm,
+	lastBpm: metronomeState.bpm,
 	lastTimeSignature: {
-		beatsPerMeasure: props.metronomeState.timeSignature.beatsPerMeasure,
-		beatUnit: props.metronomeState.timeSignature.beatUnit,
+		beatsPerMeasure: metronomeState.timeSignature.beatsPerMeasure,
+		beatUnit: metronomeState.timeSignature.beatUnit,
 	},
 	lastIsPlaying: false,
 	audioInitialized: false,
@@ -102,7 +103,7 @@ const playBeat = (time: number, note: string, velocity: number): void => {
  * Each beat in the measure will be played, with the first beat accented
  */
 const createMetronomeSequence = () => {
-	const { beatsPerMeasure, beatUnit } = props.metronomeState.timeSignature
+	const { beatsPerMeasure, beatUnit } = metronomeState.timeSignature
 
 	// Create an array of beat indices for the sequence
 	// Each element represents a beat in the measure
@@ -129,8 +130,11 @@ const startMetronome = async (): Promise<void> => {
 
 	// Set the tempo
 	const transport = Tone.getTransport()
-	transport.bpm.value = props.metronomeState.bpm
-	transport.timeSignature = [props.metronomeState.timeSignature.beatsPerMeasure, props.metronomeState.timeSignature.beatUnit]
+	transport.bpm.value = metronomeState.bpm
+	transport.timeSignature = [
+		metronomeState.timeSignature.beatsPerMeasure,
+		metronomeState.timeSignature.beatUnit,
+	]
 
 	// Create a new sequence with current settings
 	const sequence = createMetronomeSequence()
@@ -138,24 +142,34 @@ const startMetronome = async (): Promise<void> => {
 	sequence.forEach((beat) => {
 		part.add(beat)
 	})
+	part.start(0)
 
 	// Start the sequence and transport with the calculated delay
-	part.start(0)
-	transport.position = getTransportSeconds(
-		props.metronomeState.referenceTime,
-		props.metronomeState.timeSignature.beatsPerMeasure *
-			(60 / props.metronomeState.bpm),
-		props.timingState.offset,
-	)
+	console.log("Starting metronome", metronomeState.referenceTime)
 
+	if (metronomeState.referenceTime) {
+		transport.position = getTransportSeconds(
+			metronomeState.referenceTime,
+			metronomeState.timeSignature.beatsPerMeasure * (60 / metronomeState.bpm),
+			timingState.offset,
+		)
+	} else {
+		console.log("huh")
+
+		transport.position = 0
+		metronomeState = {
+			...metronomeState,
+			referenceTime: new Date().getTime() + timingState.offset,
+		}
+	}
 	transport.loop = true
 	transport.loopStart = 0
 	transport.loopEnd = "1m"
 	transport.start()
 
 	// Update playback state
-	audioState.lastBpm = props.metronomeState.bpm
-	audioState.lastTimeSignature = { ...props.metronomeState.timeSignature }
+	audioState.lastBpm = metronomeState.bpm
+	audioState.lastTimeSignature = { ...metronomeState.timeSignature }
 	audioState.lastIsPlaying = true
 }
 
@@ -172,18 +186,18 @@ const stopMetronome = (): void => {
  */
 const updateMetronome = async (): Promise<void> => {
 	// If not playing, just update the stored values
-	if (!props.metronomeState.isPlaying) {
-		audioState.lastBpm = props.metronomeState.bpm
-		audioState.lastTimeSignature = { ...props.metronomeState.timeSignature }
+	if (!metronomeState.isPlaying) {
+		audioState.lastBpm = metronomeState.bpm
+		audioState.lastTimeSignature = { ...metronomeState.timeSignature }
 		return
 	}
 
 	// If already playing and settings changed, restart with new settings
 	if (
-		props.metronomeState.bpm !== audioState.lastBpm ||
-		props.metronomeState.timeSignature.beatsPerMeasure !==
+		metronomeState.bpm !== audioState.lastBpm ||
+		metronomeState.timeSignature.beatsPerMeasure !==
 			audioState.lastTimeSignature.beatsPerMeasure ||
-		props.metronomeState.timeSignature.beatUnit !==
+		metronomeState.timeSignature.beatUnit !==
 			audioState.lastTimeSignature.beatUnit
 	) {
 		await startMetronome()
@@ -193,30 +207,36 @@ const updateMetronome = async (): Promise<void> => {
 // Watch for state changes
 $effect(() => {
 	// Skip if user hasn't interacted yet
-	if (!props.hasUserInteracted) return
+	if (!hasUserInteracted) return
+
+	console.log("State changed", metronomeState)
 
 	// Handle play/pause state changes
-	if (props.metronomeState.isPlaying !== audioState.lastIsPlaying) {
-		if (props.metronomeState.isPlaying) {
+	if (metronomeState.isPlaying !== audioState.lastIsPlaying) {
+		if (metronomeState.isPlaying) {
 			startMetronome()
 		} else {
 			stopMetronome()
 		}
 	}
 	// Handle other state changes while playing
-	else if (props.metronomeState.isPlaying) {
+	else if (metronomeState.isPlaying) {
 		updateMetronome()
 	}
 })
 
 $effect(() => {
-	Tone.getTransport().position = getTransportSeconds(
-		props.metronomeState.referenceTime,
-		props.metronomeState.timeSignature.beatsPerMeasure *
-			(60 / props.metronomeState.bpm),
-		props.timingState.offset,
-	)
-})	
+	if (Tone.getContext().state !== "closed") {
+		Tone.getTransport().position = metronomeState.referenceTime
+			? getTransportSeconds(
+					metronomeState.referenceTime,
+					metronomeState.timeSignature.beatsPerMeasure *
+						(60 / metronomeState.bpm),
+					timingState.offset,
+				)
+			: 0
+	}
+})
 
 // Clean up on component destroy
 onDestroy(() => {
