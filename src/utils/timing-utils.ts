@@ -4,11 +4,17 @@ import * as Tone from "tone"
  * Returns the current time in milliseconds, accounting for the time origin and the audio context time
  * @returns The current time in milliseconds
  */
-export const now = () =>
-	performance.timeOrigin +
-	// @ts-expect-error I promise you that this exists, I'm going to use it
-	Tone.getContext().rawContext._nativeAudioContext.getOutputTimestamp()
-		.performanceTime
+export const now = () => performance.timeOrigin + performance.now()
+
+export const getTotalAudioLatency = () => {
+	const audioLatencySeconds =
+		// @ts-expect-error This property exists but is not typed in Tone.js
+		(Tone.getContext().rawContext._nativeAudioContext.outputLatency || 0) +
+		// @ts-expect-error This property exists but is not typed in Tone.js
+		Tone.getContext().rawContext._nativeAudioContext.baseLatency
+
+	return audioLatencySeconds
+}
 
 /**
  * Calculate the reference time based on current playhead position
@@ -17,28 +23,25 @@ export const now = () =>
  *
  * @param transportSeconds - The current playhead position in seconds
  * @param wallClockOffset - The difference between local and remote clocks in milliseconds
+ * @param optionalStartDelaySeconds - Optional delay in seconds to be added to the reference time
  * @returns The reference time in milliseconds
  */
 export const getReferenceTime = (
 	transportSeconds: number,
 	wallClockOffset: number,
+	optionalStartDelaySeconds = 0,
 ): number => {
 	// Network synced wall clock time
 	const currentTime = now() + wallClockOffset
 
-	// Get audio context look-ahead time in seconds
-	const lookAheadSeconds = Tone.getContext().lookAhead
-
 	// Get output latency from native audio context in seconds
-	const audioLatencySeconds =
-		// @ts-expect-error This property exists but is not typed in Tone.js
-		Tone.getContext().rawContext._nativeAudioContext.outputLatency
+	const audioLatencySeconds = getTotalAudioLatency()
 
 	// Calculate total scheduling offset in seconds
 	const schedulingOffsetSeconds =
-		transportSeconds + lookAheadSeconds + audioLatencySeconds
+		-transportSeconds + audioLatencySeconds + optionalStartDelaySeconds
 
-	// Calculate and return the final reference time in milliseconds
+	// Beat will happen at current time + delays
 	return currentTime + schedulingOffsetSeconds * 1000
 }
 
@@ -58,25 +61,18 @@ export const getTransportPositionSeconds = (
 	referenceTime: number,
 	measureLengthSeconds: number,
 	wallClockOffset: number,
-	optionalStartDelay = 0,
+	optionalStartDelaySeconds = 0,
 ): number => {
 	// Network synced wall clock time
 	const currentTime = now() + wallClockOffset
 
 	// Accounting for network latency
 	const timeSinceReferenceSeconds = (currentTime - referenceTime) / 1000
-	const audioLatencySeconds =
-		// @ts-expect-error This property exists but is not typed in Tone.js
-		Tone.getContext().rawContext._nativeAudioContext.outputLatency
+	const audioLatencySeconds = getTotalAudioLatency()
 
 	// Tone.js scheduled lookahead
-	const lookaheadSeconds = Tone.getContext().lookAhead
-
 	const transportSeconds =
-		timeSinceReferenceSeconds -
-		lookaheadSeconds -
-		audioLatencySeconds -
-		optionalStartDelay
+		timeSinceReferenceSeconds + audioLatencySeconds + optionalStartDelaySeconds
 
 	// Modulo transportSeconds by measure length
 	const transportSecondsModulo = transportSeconds % measureLengthSeconds
@@ -88,11 +84,11 @@ export const getTransportPositionSeconds = (
 			: transportSecondsModulo
 
 	console.log("getTransportSeconds", {
+		referenceTime,
 		currentTime,
 		timeSinceReferenceSeconds,
 		measureLengthSeconds,
 		wallClockOffset,
-		lookaheadSeconds,
 		transportSeconds,
 		transportSecondsModulo,
 		transportSecondsPositive,

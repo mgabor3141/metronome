@@ -32,26 +32,22 @@ const ACCENT_VELOCITY = 0.7
 const REGULAR_VELOCITY = 0.6
 
 let lastKnownState: MetronomeState = $state(metronomeState)
+let lastKnownTimingOffset = $state(timingState.offset)
 let audioInitialized = $state(false)
 
 // References to Tone.js objects - defined outside of functions to persist between renders
 let synth: Tone.Synth | null = null
 
 const part = new Tone.Part((time, { note, velocity }) => {
-	const currentTime = now()
+	const currentTime = now() + timingState.offset
 
 	console.log(
-		"Beat callback time",
-		currentTime,
-		"Audio context time",
-		Tone.getContext().immediate(),
-		"Scheduled context time",
-		time,
-		"Time difference",
-		time - Tone.getContext().immediate(),
-		"Expected time",
-		currentTime + time - Tone.getContext().immediate(),
+		"Beat",
+		note,
+		"time",
+		currentTime + (time - Tone.getContext().immediate()) * 1000,
 	)
+
 	playBeat(time, note, velocity)
 }, [])
 
@@ -170,19 +166,25 @@ const updatePlaybackWithState = async (
 			state.referenceTime,
 			transport.toSeconds("1m"),
 			timingState.offset,
-			justStarted ? START_DELAY : 0,
+			justStarted ? START_DELAY + Tone.getContext().lookAhead : 0,
 		)
 
 		if (justStarted) {
+			console.log("Starting metronome with transport offset:", transportOffset)
 			transport.start(`+${START_DELAY}`, transportOffset)
 		} else {
+			console.log("Setting transport position to:", transportOffset)
 			transport.position = transportOffset
 		}
 	} else {
 		// Otherwise we calculate the reference time
 		if (justStarted) {
 			// If we don't have a reference time, and we are starting
-			metronomeState.referenceTime = getReferenceTime(0, timingState.offset)
+			metronomeState.referenceTime = getReferenceTime(
+				0,
+				timingState.offset,
+				START_DELAY + Tone.getContext().lookAhead,
+			)
 
 			transport.start(`+${START_DELAY}`, 0)
 
@@ -215,9 +217,22 @@ const updatePlaybackWithState = async (
 		} else {
 			// If we don't have a reference time, and we are playing
 			metronomeState.referenceTime = getReferenceTime(
-				transport.toSeconds(transport.position),
+				transport.progress * transport.toSeconds("1m"),
 				timingState.offset,
 			)
+
+			console.log(
+				now() + timingState.offset,
+				"Reference time:",
+				metronomeState.referenceTime,
+			)
+
+			console.log({
+				transportProgress: transport.progress,
+				transportProgressSeconds:
+					transport.progress * transport.toSeconds("1m"),
+				lookAhead: Tone.getContext().lookAhead,
+			})
 		}
 	}
 }
@@ -231,13 +246,15 @@ $effect(() => {
 		!deepEqual(
 			{ ...metronomeState, referenceTime: undefined },
 			{ ...lastKnownState, referenceTime: undefined },
-		)
+		) ||
+		lastKnownTimingOffset !== timingState.offset
 	) {
 		updatePlaybackWithState(
 			metronomeState,
 			lastKnownState.isPlaying !== metronomeState.isPlaying,
 		)
 		lastKnownState = metronomeState
+		lastKnownTimingOffset = timingState.offset
 	}
 })
 </script>
