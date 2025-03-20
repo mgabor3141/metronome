@@ -35,36 +35,6 @@ let lastKnownState: MetronomeState = $state(metronomeState)
 let lastKnownTimingOffset = $state(timingState.offset)
 let audioInitialized = $state(false)
 
-// References to Tone.js objects - defined outside of functions to persist between renders
-let synth: Tone.Synth | null = null
-
-const part = new Tone.Part((time, { note, velocity }) => {
-	const currentTime = now() + timingState.offset
-
-	console.log(
-		"Beat",
-		note,
-		"time",
-		currentTime + (time - Tone.getContext().immediate()) * 1000,
-	)
-
-	playBeat(time, note, velocity)
-}, [])
-
-/**
- * Creates a synth instance for sound generation if it doesn't exist
- */
-const getSynth = (): Tone.Synth => {
-	if (!synth) {
-		synth = new Tone.Synth({
-			oscillator: { type: "triangle" },
-			envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.1 },
-			volume: -6,
-		}).toDestination()
-	}
-	return synth
-}
-
 /**
  * Initializes the audio context and Tone.js
  * Only called after a user gesture (when play is clicked)
@@ -86,14 +56,28 @@ const initAudio = async (): Promise<void> => {
 	}
 }
 
+// References to Tone.js objects - defined outside of functions to persist between renders
+let synth: Tone.Synth | null = null
+
 /**
- * Plays a single beat with the given parameters
+ * Creates a synth instance for sound generation if it doesn't exist
  */
-const playBeat = (time: number, note: string, velocity: number): void => {
+const getSynth = (): Tone.Synth => {
+	if (!synth) {
+		synth = new Tone.Synth({
+			oscillator: { type: "triangle" },
+			envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.1 },
+			volume: -6,
+		}).toDestination()
+	}
+	return synth
+}
+
+const part = new Tone.Part((time, { note, velocity }) => {
 	const currentSynth = getSynth()
 
 	currentSynth.triggerAttackRelease(note, NOTE_DURATION, time, velocity)
-}
+}, [])
 
 /**
  * Creates a metronome sequence for the full measure
@@ -128,8 +112,14 @@ const updatePlaybackWithState = async (
 		await Tone.start()
 	}
 
-	// Set the tempo
 	const transport = Tone.getTransport()
+
+	if (!state.isPlaying) {
+		transport.stop()
+		return
+	}
+
+	// Set the tempo
 	transport.bpm.value = state.bpm
 	transport.timeSignature = [
 		state.timeSignature.beatsPerMeasure,
@@ -138,7 +128,6 @@ const updatePlaybackWithState = async (
 	transport.loop = true
 	transport.loopStart = 0
 	transport.loopEnd = "1m"
-	transport.debug = true
 
 	// Create a new sequence with current settings
 	const sequence = createMetronomeSequence()
@@ -147,16 +136,6 @@ const updatePlaybackWithState = async (
 		part.add(beat)
 	})
 	part.start(0)
-
-	const currentTime = now()
-
-	if (!state.isPlaying) {
-		transport.stop()
-		// This is just a placeholder so that it's not undefined
-		// In the future the stop event should be sent regardless of the reference time
-		metronomeState.referenceTime = currentTime + timingState.offset
-		return
-	}
 
 	const START_DELAY = 0.1
 
@@ -170,10 +149,8 @@ const updatePlaybackWithState = async (
 		)
 
 		if (justStarted) {
-			console.log("Starting metronome with transport offset:", transportOffset)
 			transport.start(`+${START_DELAY}`, transportOffset)
 		} else {
-			console.log("Setting transport position to:", transportOffset)
 			transport.position = transportOffset
 		}
 	} else {
@@ -187,52 +164,12 @@ const updatePlaybackWithState = async (
 			)
 
 			transport.start(`+${START_DELAY}`, 0)
-
-			console.log(
-				"Starting metronome with reference time:",
-				metronomeState.referenceTime,
-				"currentTime",
-				currentTime,
-				"offset",
-				timingState.offset,
-				"lookAhead",
-				Tone.getContext().lookAhead,
-				"startDelay",
-				START_DELAY,
-				"Audio context time",
-				Tone.getContext().immediate(),
-			)
-
-			console.log(
-				[
-					'"Now":',
-					new Date().getTime(),
-					performance.timeOrigin + performance.now(),
-					performance.timeOrigin +
-						// @ts-expect-error I promise you that this exists, I'm going to use it
-						Tone.getContext().rawContext._nativeAudioContext.getOutputTimestamp()
-							.performanceTime,
-				].join("\n"),
-			)
 		} else {
 			// If we don't have a reference time, and we are playing
 			metronomeState.referenceTime = getReferenceTime(
 				transport.progress * transport.toSeconds("1m"),
 				timingState.offset,
 			)
-
-			console.log(
-				now() + timingState.offset,
-				"Reference time:",
-				metronomeState.referenceTime,
-			)
-
-			console.log({
-				transportProgress: transport.progress,
-				transportProgressSeconds:
-					transport.progress * transport.toSeconds("1m"),
-				lookAhead: Tone.getContext().lookAhead,
-			})
 		}
 	}
 }
