@@ -1,3 +1,4 @@
+<!-- @hmr:keep-all -->
 <script lang="ts" module>
 import type Peer from "peerjs"
 import type { DataConnection } from "peerjs"
@@ -8,7 +9,7 @@ import {
 	getPeer,
 } from "./PeerProvider.svelte"
 import { getContext, onDestroy, setContext } from "svelte"
-import DebugString from "../../../components/DebugString.svelte"
+import DebugString from "../../components/DebugString.svelte"
 
 const PEER_CONNECTIONS_CONTEXT_KEY = Symbol("peerConnections")
 
@@ -43,7 +44,7 @@ export const broadcast = <T,>(peer: Peer, data: P2PMessage<T>) => {
 }
 
 export const send = <T,>(peer: Peer, data: P2PMessage<T>, target: string) => {
-	console.debug("[P2P] Sending to", target, data, performance.now())
+	console.debug("[P2P] Sending to", target, data)
 	const allConnections = peer.connections as Record<string, DataConnection[]>
 
 	const conn = allConnections[target]?.find((conn) => conn.open)
@@ -84,7 +85,10 @@ const syncConnections = (peer: PeerContext, targets: string[]) => {
 
 	// Connect to new targets
 	for (const target of targets) {
-		if (target === peer.id || (allConnections[target]?.some((conn) => conn.open) ?? false))
+		if (
+			target === peer.id ||
+			(allConnections[target]?.some((conn) => conn.open) ?? false)
+		)
 			continue
 
 		console.debug("[P2P] Connecting to", target)
@@ -132,5 +136,11 @@ onDestroy(() => {
 })
 </script>
 
-<DebugString {peerConnections} />
-{@render children()}
+{#if !peerConnections.live}
+	<p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+		Connecting...
+	</p>
+{:else}
+	{@render children()}
+	<DebugString {peerConnections} />
+{/if}

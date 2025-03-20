@@ -3,7 +3,7 @@
  */
 import type { APIRoute } from "astro"
 import { generateGroupCode } from "../../utils/code-utils"
-import type { GroupStateUpdate } from "../../metronome/networking/providers/GroupProvider.svelte"
+import type { GroupStateUpdate } from "../../metronome/providers/GroupProvider.svelte"
 
 // Type definitions
 type Group = {

@@ -1,11 +1,8 @@
 import * as Tone from "tone"
 
 /**
- * Returns the current time in milliseconds, accounting for the time origin and the audio context time
- * @returns The current time in milliseconds
+ * @returns The total audio latency in seconds
  */
-export const now = () => performance.timeOrigin + performance.now()
-
 export const getTotalAudioLatency = () => {
 	const audioLatencySeconds =
 		// @ts-expect-error This property exists but is not typed in Tone.js
@@ -22,18 +19,18 @@ export const getTotalAudioLatency = () => {
  * This function answers: "What's the exact timestamp of the first click?"
  *
  * @param transportSeconds - The current playhead position in seconds
- * @param wallClockOffset - The difference between local and remote clocks in milliseconds
  * @param optionalStartDelaySeconds - Optional delay in seconds to be added to the reference time
  * @returns The reference time in milliseconds
  */
-export const getReferenceTime = (
-	transportSeconds: number,
-	wallClockOffset: number,
+export const getReferenceTime = ({
+	currentTime,
+	transportSeconds,
 	optionalStartDelaySeconds = 0,
-): number => {
-	// Network synced wall clock time
-	const currentTime = now() + wallClockOffset
-
+}: {
+	currentTime: number
+	transportSeconds: number
+	optionalStartDelaySeconds?: number
+}): number => {
 	// Get output latency from native audio context in seconds
 	const audioLatencySeconds = getTotalAudioLatency()
 
@@ -51,21 +48,23 @@ export const getReferenceTime = (
  * This function answers: "Where should the playhead be now if we want to
  * have the first click at the reference timestamp?"
  *
+ * @param currentTime - The current time in milliseconds
  * @param referenceTime - The reference time when playback started (in milliseconds)
- * @param bpm - Beats per minute
- * @param beatsPerMeasure - Number of beats per measure
- * @param wallClockOffset - Offset between local and remote wall clocks in milliseconds (positive if remote is ahead)
+ * @param measureLengthSeconds - Length of a measure in seconds
+ * @param optionalStartDelaySeconds - Optional delay in seconds to be added to the reference time
  * @returns The playhead position in seconds
  */
-export const getTransportPositionSeconds = (
-	referenceTime: number,
-	measureLengthSeconds: number,
-	wallClockOffset: number,
+export const getTransportPositionSeconds = ({
+	currentTime,
+	referenceTime,
+	measureLengthSeconds,
 	optionalStartDelaySeconds = 0,
-): number => {
-	// Network synced wall clock time
-	const currentTime = now() + wallClockOffset
-
+}: {
+	currentTime: number
+	referenceTime: number
+	measureLengthSeconds: number
+	optionalStartDelaySeconds?: number
+}): number => {
 	// Accounting for network latency
 	const timeSinceReferenceSeconds = (currentTime - referenceTime) / 1000
 	const audioLatencySeconds = getTotalAudioLatency()
@@ -82,18 +81,6 @@ export const getTransportPositionSeconds = (
 		transportSecondsModulo < 0
 			? transportSecondsModulo + measureLengthSeconds
 			: transportSecondsModulo
-
-	console.log("getTransportSeconds", {
-		referenceTime,
-		currentTime,
-		timeSinceReferenceSeconds,
-		measureLengthSeconds,
-		wallClockOffset,
-		transportSeconds,
-		transportSecondsModulo,
-		transportSecondsPositive,
-		audioLatencySeconds,
-	})
 
 	return transportSecondsPositive
 }

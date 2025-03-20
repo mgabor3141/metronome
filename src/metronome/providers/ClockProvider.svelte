@@ -1,24 +1,47 @@
+<script lang="ts" module>
+import { getContext, setContext } from "svelte"
+
+export const CLOCK_CONTEXT_KEY = Symbol("clock")
+
+export type ClockState = {
+	offset: number
+	synced: boolean
+	now: () => number
+}
+
+export const getClock = () => getContext<ClockState>(CLOCK_CONTEXT_KEY)
+</script>
+
 <script lang="ts">
-import type { TimingState } from "../Metronome.svelte"
 import * as timesync from "timesync"
 import type { TimeSyncInstance } from "timesync"
 import { onDestroy, onMount } from "svelte"
-import { getGroup } from "./providers/GroupProvider.svelte"
-import { getPeer } from "./providers/PeerProvider.svelte"
+import { getGroup } from "./GroupProvider.svelte"
+import { getPeer } from "./PeerProvider.svelte"
 import {
 	type P2PMessage,
 	getPeerConnections,
 	send,
-} from "./providers/PeerConnectionsProvider.svelte"
+} from "./PeerConnectionsProvider.svelte"
 import DebugString from "../../components/DebugString.svelte"
-
-const { timingState = $bindable() }: { timingState: TimingState } = $props()
 
 const peer = getPeer()
 const groupState = getGroup()
 const peerConnections = getPeerConnections()
 
 let ts: TimeSyncInstance | undefined
+
+const clockState = $state<ClockState>({
+	offset: 0,
+	synced: false,
+	now: () => {
+		if (!ts) throw new Error("Timesync not initialized")
+		return ts.now()
+	},
+})
+
+setContext(CLOCK_CONTEXT_KEY, clockState)
+
 let syncInterval = $state<Timer>()
 let handler: (from: string, data: unknown) => void
 
@@ -29,8 +52,6 @@ onMount(() => {
 		interval: null,
 		now: () => performance.timeOrigin + performance.now(),
 	})
-
-	timingState.offset = ts.offset
 
 	ts.send = async (id: string, data: unknown) => {
 		send(peer.instance, data as P2PMessage<unknown>, id)
@@ -43,8 +64,8 @@ onMount(() => {
 	ts.on("change", (offsetValue: unknown) => {
 		const newOffset = offsetValue as number
 		console.log(`[TIME] Wall clock offset changed: ${newOffset.toFixed(4)}ms`)
-		timingState.offset = newOffset
-		timingState.ready = true
+		clockState.synced = true
+		clockState.offset = newOffset
 	})
 
 	ts.on("error", (error: unknown) => {
@@ -78,7 +99,7 @@ $effect(() => {
 		// Leader syncs with noone
 		// Note that in case of leader migration the previous offset remains in ts internally and our state
 		ts.options.peers = []
-		timingState.ready = true
+		clockState.synced = true
 		return
 	}
 
@@ -92,25 +113,8 @@ $effect(() => {
 	}
 })
 
-let currentTime = $state(new Date())
-let currentGlobalTime = $state(new Date())
-let currentOtherGlobalTime = $state(new Date())
-
-setInterval(() => {
-	currentTime = new Date()
-	currentGlobalTime = new Date(ts?.now() ?? 0)
-	currentOtherGlobalTime = new Date(new Date().getTime() + timingState.offset)
-}, 100)
+const { children } = $props()
 </script>
 
-<DebugString
-	{timingState}
-	localTime={currentTime}
-	tsNowTime={currentGlobalTime}
-	calTsTime={currentOtherGlobalTime}
->
-	<button
-		class="cursor-pointer rounded bg-gray-200 px-3 py-1 text-sm font-medium transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
-		onclick={() => ts?.sync()}>Sync Now</button
-	>
-</DebugString>
+{@render children()}
+<DebugString {clockState} />

@@ -1,8 +1,8 @@
 <script lang="ts">
-/**
- * MetronomeUI component that handles the presentation layer for the metronome
- */
-import type { MetronomeState, PartialMetronomeState } from "../Metronome.svelte"
+import {
+	getMetronomeState,
+	setMetronomeStateLocal,
+} from "../providers/MetronomeStateProvider.svelte"
 
 // UI constants
 const MIN_BPM = 40
@@ -10,27 +10,10 @@ const MAX_BPM = 240
 const VALID_BEAT_UNITS = [2, 4, 8, 16]
 const MAX_BEATS_PER_MEASURE = 12
 
-// Props interface for the component
-type MetronomeUIProps = {
-	// Full state object
-	metronomeState: MetronomeState
-	// Local playing state (for audio playback)
-	hasUserInteracted: boolean
-	// Whether we have time sync
-	timingReady: boolean
-	// Whether we have initial state
-	initialStateReady: boolean
-	// Single event handler for state updates
-	onStateUpdate: (partialState: PartialMetronomeState) => void
-	// Toggle playback handler
-	onTogglePlayback: () => void
-}
-
-// Receive props from parent component
-const props: MetronomeUIProps = $props()
+const metronomeState = getMetronomeState()
 
 // UI-specific derived values
-const beatDurationMs = $derived(60000 / props.metronomeState.bpm)
+const beatDurationMs = $derived(60000 / metronomeState.bpm)
 
 // Specific handlers for each input type
 const handleBpmChange = (event: Event): void => {
@@ -38,7 +21,9 @@ const handleBpmChange = (event: Event): void => {
 	const value = Number.parseInt(target.value, 10)
 
 	if (value >= MIN_BPM && value <= MAX_BPM) {
-		props.onStateUpdate({ bpm: value })
+		setMetronomeStateLocal(metronomeState, {
+			bpm: value,
+		})
 	}
 }
 
@@ -47,8 +32,8 @@ const handleBeatsPerMeasureChange = (event: Event): void => {
 	const value = Number.parseInt(target.value, 10)
 
 	if (value >= 1 && value <= MAX_BEATS_PER_MEASURE) {
-		props.onStateUpdate({
-			timeSignature: { beatsPerMeasure: value },
+		setMetronomeStateLocal(metronomeState, {
+			timeSignature: { ...metronomeState.timeSignature, beatsPerMeasure: value },
 		})
 	}
 }
@@ -58,8 +43,8 @@ const handleBeatUnitChange = (event: Event): void => {
 	const value = Number.parseInt(target.value, 10)
 
 	if (VALID_BEAT_UNITS.includes(value)) {
-		props.onStateUpdate({
-			timeSignature: { beatUnit: value },
+		setMetronomeStateLocal(metronomeState, {
+			timeSignature: { ...metronomeState.timeSignature, beatUnit: value },
 		})
 	}
 }
@@ -72,10 +57,10 @@ const handleBeatUnitChange = (event: Event): void => {
 
 	<div class="current-settings mb-6 rounded-md bg-gray-50 p-4">
 		<div class="mb-2 text-center text-4xl font-bold">
-			{props.metronomeState.bpm} BPM
+			{metronomeState.bpm} BPM
 		</div>
 		<div class="text-center text-xl">
-			{props.metronomeState.timeSignature.beatsPerMeasure}/{props.metronomeState
+			{metronomeState.timeSignature.beatsPerMeasure}/{metronomeState
 				.timeSignature.beatUnit}
 		</div>
 		<div class="mt-1 text-center text-sm text-gray-500">
@@ -97,7 +82,7 @@ const handleBeatUnitChange = (event: Event): void => {
 					type="range"
 					min={MIN_BPM}
 					max={MAX_BPM}
-					value={props.metronomeState.bpm}
+					value={metronomeState.bpm}
 					oninput={handleBpmChange}
 					class="flex-grow"
 				/>
@@ -105,7 +90,7 @@ const handleBeatUnitChange = (event: Event): void => {
 					type="number"
 					min={MIN_BPM}
 					max={MAX_BPM}
-					value={props.metronomeState.bpm}
+					value={metronomeState.bpm}
 					oninput={handleBpmChange}
 					class="w-16 rounded border p-1 text-center"
 				/>
@@ -119,7 +104,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			<div class="flex items-center gap-2">
 				<select
 					id="beats-per-measure"
-					value={props.metronomeState.timeSignature.beatsPerMeasure}
+					value={metronomeState.timeSignature.beatsPerMeasure}
 					onchange={handleBeatsPerMeasureChange}
 					class="rounded border p-1"
 				>
@@ -130,7 +115,7 @@ const handleBeatUnitChange = (event: Event): void => {
 				<span class="text-xl">/</span>
 				<select
 					id="beat-unit"
-					value={props.metronomeState.timeSignature.beatUnit}
+					value={metronomeState.timeSignature.beatUnit}
 					onchange={handleBeatUnitChange}
 					class="rounded border p-1"
 				>
@@ -146,10 +131,12 @@ const handleBeatUnitChange = (event: Event): void => {
 	<div class="mt-6 flex flex-col items-center">
 		<button
 			class="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400 disabled:text-gray-500"
-			disabled={!props.timingReady || !props.initialStateReady}
-			onclick={props.onTogglePlayback}
+			onclick={() =>
+				setMetronomeStateLocal(metronomeState, {
+					isPlaying: !metronomeState.isPlaying,
+				})}
 		>
-			{#if props.metronomeState.isPlaying && props.hasUserInteracted}
+			{#if metronomeState.isPlaying}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"
@@ -173,28 +160,8 @@ const handleBeatUnitChange = (event: Event): void => {
 						clip-rule="evenodd"
 					/>
 				</svg>
-				{!props.timingReady || !props.initialStateReady
-					? "Synchronizing"
-					: "Start"}
+				Start
 			{/if}
 		</button>
-
-		{#if props.metronomeState.isPlaying && !props.hasUserInteracted}
-			<div class="mt-2 flex items-center gap-1 text-sm text-amber-600">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-				>
-					<path
-						fill-rule="evenodd"
-						d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				<span> Click Start to join. </span>
-			</div>
-		{/if}
 	</div>
 </div>

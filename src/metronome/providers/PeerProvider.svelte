@@ -1,3 +1,4 @@
+<!-- @hmr:keep-all -->
 <script lang="ts" module>
 import { getContext, onDestroy, onMount, setContext } from "svelte"
 
@@ -40,7 +41,7 @@ export const getPeer = () => {
 <script lang="ts">
 import Peer from "peerjs"
 import type { DataConnection } from "peerjs"
-import DebugString from "../../../components/DebugString.svelte"
+import DebugString from "../../components/DebugString.svelte"
 
 const subscribers = $state<Record<P2PMessageType, PeerDataCallback<unknown>[]>>(
 	{
@@ -101,6 +102,7 @@ const peer = $state<
 		callback: (from: string, data: unknown) => void,
 	) => {
 		// Add callback to our subscribers
+		console.debug("[P2P] Subscribing to", method)
 		subscribers[method].push(callback)
 	},
 	unsubscribe: (
@@ -108,6 +110,7 @@ const peer = $state<
 		callback: (from: string, data: unknown) => void,
 	) => {
 		// Remove callback from our subscribers
+		console.debug("[P2P] Unsubscribing from", method)
 		subscribers[method] = subscribers[method].filter((cb) => cb !== callback)
 	},
 })
@@ -149,6 +152,6 @@ const { children } = $props()
 		Connecting...
 	</p>
 {:else}
-	<DebugString peerId={peer.id} openConnections={peer.availableConnections} />
 	{@render children()}
+	<DebugString peerId={peer.id} openConnections={peer.availableConnections} />
 {/if}
