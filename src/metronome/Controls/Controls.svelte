@@ -11,7 +11,7 @@ const VALID_BEAT_UNITS = [2, 4, 8, 16]
 const MAX_BEATS_PER_MEASURE = 12
 
 // Props interface for the component
-interface MetronomeUIProps {
+type MetronomeUIProps = {
 	// Full state object
 	metronomeState: MetronomeState
 	// Local playing state (for audio playback)
@@ -65,25 +65,30 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
-<div class="metronome-container p-6 max-w-lg mx-auto bg-white rounded-lg shadow-md">
-	<h1 class="text-2xl font-bold mb-4 text-center">Metronome</h1>
+<div
+	class="metronome-container mx-auto max-w-lg rounded-lg bg-white p-6 shadow-md"
+>
+	<h1 class="mb-4 text-center text-2xl font-bold">Metronome</h1>
 
-	<div class="current-settings mb-6 p-4 bg-gray-50 rounded-md">
-		<div class="text-center text-4xl font-bold mb-2">{props.metronomeState.bpm} BPM</div>
-		<div class="text-center text-xl">
-			{props.metronomeState.timeSignature.beatsPerMeasure}/{props.metronomeState.timeSignature.beatUnit}
+	<div class="current-settings mb-6 rounded-md bg-gray-50 p-4">
+		<div class="mb-2 text-center text-4xl font-bold">
+			{props.metronomeState.bpm} BPM
 		</div>
-		<div class="text-center text-sm text-gray-500 mt-1">
+		<div class="text-center text-xl">
+			{props.metronomeState.timeSignature.beatsPerMeasure}/{props.metronomeState
+				.timeSignature.beatUnit}
+		</div>
+		<div class="mt-1 text-center text-sm text-gray-500">
 			Beat duration: {beatDurationMs.toFixed(2)}ms
 		</div>
 	</div>
 
 	<!-- Settings Subcomponent -->
 	<div class="settings-panel">
-		<h2 class="text-lg font-semibold mb-3">Settings</h2>
+		<h2 class="mb-3 text-lg font-semibold">Settings</h2>
 
 		<div class="mb-4">
-			<label for="bpm-input" class="block text-sm font-medium mb-1">
+			<label for="bpm-input" class="mb-1 block text-sm font-medium">
 				Tempo (BPM)
 			</label>
 			<div class="flex items-center gap-3">
@@ -102,13 +107,13 @@ const handleBeatUnitChange = (event: Event): void => {
 					max={MAX_BPM}
 					value={props.metronomeState.bpm}
 					oninput={handleBpmChange}
-					class="w-16 p-1 border rounded text-center"
+					class="w-16 rounded border p-1 text-center"
 				/>
 			</div>
 		</div>
 
 		<div class="time-signature-settings">
-			<label for="beats-per-measure" class="block text-sm font-medium mb-1">
+			<label for="beats-per-measure" class="mb-1 block text-sm font-medium">
 				Time Signature
 			</label>
 			<div class="flex items-center gap-2">
@@ -116,9 +121,9 @@ const handleBeatUnitChange = (event: Event): void => {
 					id="beats-per-measure"
 					value={props.metronomeState.timeSignature.beatsPerMeasure}
 					onchange={handleBeatsPerMeasureChange}
-					class="p-1 border rounded"
+					class="rounded border p-1"
 				>
-					{#each Array.from({ length: MAX_BEATS_PER_MEASURE }, (_, i) => i + 1) as beats}
+					{#each Array.from({ length: MAX_BEATS_PER_MEASURE }, (_, i) => i + 1) as beats (beats)}
 						<option value={beats}>{beats}</option>
 					{/each}
 				</select>
@@ -127,9 +132,9 @@ const handleBeatUnitChange = (event: Event): void => {
 					id="beat-unit"
 					value={props.metronomeState.timeSignature.beatUnit}
 					onchange={handleBeatUnitChange}
-					class="p-1 border rounded"
+					class="rounded border p-1"
 				>
-					{#each VALID_BEAT_UNITS as unit}
+					{#each VALID_BEAT_UNITS as unit (unit)}
 						<option value={unit}>{unit}</option>
 					{/each}
 				</select>
@@ -139,35 +144,57 @@ const handleBeatUnitChange = (event: Event): void => {
 
 	<!-- Playback Controls -->
 	<div class="mt-6 flex flex-col items-center">
-		<button 
-			class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-blue-400 disabled:text-gray-500"
+		<button
+			class="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400 disabled:text-gray-500"
 			disabled={!props.timingReady || !props.initialStateReady}
 			onclick={props.onTogglePlayback}
 		>
 			{#if props.metronomeState.isPlaying && props.hasUserInteracted}
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+				>
 					<rect x="6" y="4" width="3" height="12" rx="1" />
 					<rect x="11" y="4" width="3" height="12" rx="1" />
 				</svg>
 				Pause
 			{:else}
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+						clip-rule="evenodd"
+					/>
 				</svg>
-				{!props.timingReady || !props.initialStateReady ? "Synchronizing" : "Start"}
+				{!props.timingReady || !props.initialStateReady
+					? "Synchronizing"
+					: "Start"}
 			{/if}
 		</button>
-		
+
 		{#if props.metronomeState.isPlaying && !props.hasUserInteracted}
-			<div class="mt-2 text-sm text-amber-600 flex items-center gap-1">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+			<div class="mt-2 flex items-center gap-1 text-sm text-amber-600">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+						clip-rule="evenodd"
+					/>
 				</svg>
-				<span>
-					Click Start to join.
-				</span>
+				<span> Click Start to join. </span>
 			</div>
 		{/if}
 	</div>
-
 </div>

@@ -3,29 +3,28 @@ import "../styles/global.css"
 ---
 
 <script>
-// @ts-expect-error need to set this on window
-window.TONE_SILENCE_LOGGING = true
+	// @ts-expect-error need to set this on window
+	window.TONE_SILENCE_LOGGING = true
 </script>
 
-<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Metronome</title>
-  </head>
-  <body>
-    <slot />
-  </body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Metronome</title>
+	</head>
+	<body>
+		<slot />
+	</body>
 </html>
 
 <style>
-  html,
-  body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-  }
+	html,
+	body {
+		margin: 0;
+		width: 100%;
+		height: 100%;
+	}
 </style>

@@ -52,14 +52,14 @@ let websocket: WebSocket | null = null
 
 const getGroupCodeFromUrl = () => {
 	// Get group code from URL
-    const url = new URL(window.location.href);
-    const urlGroupCode = url.searchParams.get(GROUP_URL_PARAM);
+	const url = new URL(window.location.href)
+	const urlGroupCode = url.searchParams.get(GROUP_URL_PARAM)
 	if (urlGroupCode) {
 		saveGroupCode(urlGroupCode)
 
 		// Remove from URL
-		url.searchParams.delete(GROUP_URL_PARAM);
-		window.history.replaceState(null, '', url.toString());
+		url.searchParams.delete(GROUP_URL_PARAM)
+		window.history.replaceState(null, "", url.toString())
 	}
 	return urlGroupCode
 }
@@ -140,8 +140,10 @@ onDestroy(() => {
 </script>
 
 {#if groupState.connectionStatus !== "connected"}
-    <p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">Joining group...</p>
+	<p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+		Joining group...
+	</p>
 {:else}
-	<DebugString groupState={groupState} />
-    {@render children()}
+	<DebugString {groupState} />
+	{@render children()}
 {/if}

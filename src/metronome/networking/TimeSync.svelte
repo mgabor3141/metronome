@@ -6,9 +6,9 @@ import { onDestroy, onMount } from "svelte"
 import { getGroup } from "./providers/GroupProvider.svelte"
 import { getPeer } from "./providers/PeerProvider.svelte"
 import {
+	type P2PMessage,
 	getPeerConnections,
 	send,
-	type P2PMessage,
 } from "./providers/PeerConnectionsProvider.svelte"
 import DebugString from "../../components/DebugString.svelte"
 
@@ -85,7 +85,7 @@ $effect(() => {
 	ts.options.peers = [groupState.leader]
 
 	if (!syncInterval) {
-		ts?.sync()
+		ts.sync()
 		syncInterval = setInterval(() => {
 			ts?.sync()
 		}, 30_000)
@@ -103,6 +103,14 @@ setInterval(() => {
 }, 100)
 </script>
 
-<DebugString timingState={timingState} localTime={currentTime} tsNowTime={currentGlobalTime} calTsTime={currentOtherGlobalTime}>
-	<button class="px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-sm font-medium transition-colors cursor-pointer" onclick={() => ts?.sync()}>Sync Now</button>
+<DebugString
+	{timingState}
+	localTime={currentTime}
+	tsNowTime={currentGlobalTime}
+	calTsTime={currentOtherGlobalTime}
+>
+	<button
+		class="cursor-pointer rounded bg-gray-200 px-3 py-1 text-sm font-medium transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+		onclick={() => ts?.sync()}>Sync Now</button
+	>
 </DebugString>

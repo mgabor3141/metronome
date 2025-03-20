@@ -8,11 +8,10 @@ import type { MetronomeState, TimingState } from "./Metronome.svelte"
 import {
 	getReferenceTime,
 	getTransportPositionSeconds,
-	now,
 } from "../utils/timing-utils"
 import { deepEqual } from "../utils/object-utils"
 
-interface MetronomeAudioProps {
+type MetronomeAudioProps = {
 	metronomeState: MetronomeState
 	hasUserInteracted: boolean
 	timingState: TimingState

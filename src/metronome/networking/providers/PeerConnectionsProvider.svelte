@@ -3,9 +3,9 @@ import type Peer from "peerjs"
 import type { DataConnection } from "peerjs"
 import { getGroup } from "./GroupProvider.svelte"
 import {
-	getPeer,
 	type P2PMessageType,
 	type PeerContext,
+	getPeer,
 } from "./PeerProvider.svelte"
 import { getContext, onDestroy, setContext } from "svelte"
 import DebugString from "../../../components/DebugString.svelte"
@@ -34,7 +34,7 @@ export type P2PMessage<T> = {
 	method: P2PMessageType
 } & T
 
-export const broadcast = <T>(peer: Peer, data: P2PMessage<T>) => {
+export const broadcast = <T,>(peer: Peer, data: P2PMessage<T>) => {
 	console.debug("[P2P] Broadcasting:", data)
 	const connections = getOpenConnections(peer)
 	for (const conn of Object.values(connections)) {
@@ -42,7 +42,7 @@ export const broadcast = <T>(peer: Peer, data: P2PMessage<T>) => {
 	}
 }
 
-export const send = <T>(peer: Peer, data: P2PMessage<T>, target: string) => {
+export const send = <T,>(peer: Peer, data: P2PMessage<T>, target: string) => {
 	console.debug("[P2P] Sending to", target, data, performance.now())
 	const allConnections = peer.connections as Record<string, DataConnection[]>
 
@@ -59,7 +59,9 @@ const disconnectAll = (peer: Peer) => {
 
 	Object.values(allConnections)
 		.flatMap((connections) => connections.filter((conn) => conn.open))
-		.forEach((conn) => conn.close())
+		.forEach((conn) => {
+			conn.close()
+		})
 }
 
 const syncConnections = (peer: PeerContext, targets: string[]) => {
@@ -76,11 +78,13 @@ const syncConnections = (peer: PeerContext, targets: string[]) => {
 	Object.entries(allConnections)
 		.filter(([id]) => !targets.includes(id))
 		.flatMap(([_, connections]) => connections.filter((conn) => conn.open))
-		.forEach((conn) => conn.close())
+		.forEach((conn) => {
+			conn.close()
+		})
 
 	// Connect to new targets
 	for (const target of targets) {
-		if (target === peer.id || allConnections[target]?.some((conn) => conn.open))
+		if (target === peer.id || (allConnections[target]?.some((conn) => conn.open) ?? false))
 			continue
 
 		console.debug("[P2P] Connecting to", target)
@@ -117,7 +121,9 @@ $effect(() => {
 		peerConnections.live = allConnected
 	}, 200)
 
-	return () => clearTimeout(timeout)
+	return () => {
+		clearTimeout(timeout)
+	}
 })
 
 onDestroy(() => {
@@ -126,5 +132,5 @@ onDestroy(() => {
 })
 </script>
 
-<DebugString peerConnections={peerConnections} />
+<DebugString {peerConnections} />
 {@render children()}

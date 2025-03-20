@@ -1,0 +1,12 @@
+{
+	"trailingComma": "all",
+	"semi": false,
+	"useTabs": true,
+	"plugins": [
+		"prettier-plugin-astro",
+		"prettier-plugin-svelte",
+		"prettier-plugin-tailwindcss"
+	],
+	"overrides": [{ "files": "*.svelte", "options": { "parser": "svelte" } }],
+	"svelteIndentScriptAndStyle": false
+}

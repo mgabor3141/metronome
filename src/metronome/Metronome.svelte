@@ -6,13 +6,13 @@
  */
 
 // Time signature type
-export interface TimeSignature {
+export type TimeSignature = {
 	beatsPerMeasure: number
 	beatUnit: number
 }
 
 // Metronome state type
-export interface MetronomeState {
+export type MetronomeState = {
 	bpm: number
 	timeSignature: TimeSignature
 	isPlaying: boolean
@@ -42,10 +42,10 @@ export type PartialMetronomeState = DeepPartial<MetronomeState>
  * Main Metronome component
  * Manages state and delegates UI rendering to child components
  */
-import { deepMergeIfChanged } from "../utils/object-utils";
-import Audio from "./Audio.svelte";
-import Controls from "./Controls/Controls.svelte";
-import Networking from "./networking/Networking.svelte";
+import { deepMergeIfChanged } from "../utils/object-utils"
+import Audio from "./Audio.svelte"
+import Controls from "./Controls/Controls.svelte"
+import Networking from "./networking/Networking.svelte"
 
 let metronomeState = $state<MetronomeState>({
 	bpm: 120,
@@ -80,7 +80,7 @@ const localStateUpdate = (partialState: PartialMetronomeState): void => {
 /**
  * Toggle the playing state of the metronome
  */
-const togglePlayback = (firstLocalPlay: boolean = false): void => {
+const togglePlayback = (firstLocalPlay = false): void => {
 	if (firstLocalPlay && metronomeState.isPlaying) {
 		// We align with the already playing reference time (not going through localStateUpdate)
 		metronomeState.isPlaying = true
@@ -106,8 +106,4 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 
 <Networking bind:metronomeState bind:timingState bind:waitingForInitialState />
 
-<Audio
-	bind:metronomeState
-	{hasUserInteracted}
-	{timingState}
-/>
+<Audio bind:metronomeState {hasUserInteracted} {timingState} />

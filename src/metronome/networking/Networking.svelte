@@ -6,7 +6,6 @@ import TimeSync from "./TimeSync.svelte"
 import MetronomeStateSync from "./MetronomeStateSync.svelte"
 import RequestInitialState from "./RequestInitialState.svelte"
 
-// biome-ignore lint/style/useConst: <explanation>
 let {
 	metronomeState = $bindable(),
 	timingState = $bindable(),

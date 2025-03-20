@@ -1,5 +1,5 @@
 declare module "timesync" {
-	export interface TimeSyncOptions {
+	export type TimeSyncOptions = {
 		server?: string
 		peers?: string[]
 		delay?: number
@@ -9,7 +9,7 @@ declare module "timesync" {
 		now?: () => number
 	}
 
-	export interface TimeSyncInstance {
+	export type TimeSyncInstance = {
 		now(): number
 		sync(): void
 		destroy(): void

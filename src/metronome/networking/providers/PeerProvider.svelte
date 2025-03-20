@@ -40,7 +40,7 @@ export const getPeer = () => {
 <script lang="ts">
 import Peer from "peerjs"
 import type { DataConnection } from "peerjs"
-  import DebugString from "../../../components/DebugString.svelte";
+import DebugString from "../../../components/DebugString.svelte"
 
 const subscribers = $state<Record<P2PMessageType, PeerDataCallback<unknown>[]>>(
 	{
@@ -51,7 +51,9 @@ const subscribers = $state<Record<P2PMessageType, PeerDataCallback<unknown>[]>>(
 )
 
 const notify = (topic: P2PMessageType, from: string, data: unknown) => {
-	subscribers[topic].forEach((callback) => callback(from, data))
+	subscribers[topic].forEach((callback) => {
+		callback(from, data)
+	})
 }
 
 const peer = $state<
@@ -59,7 +61,10 @@ const peer = $state<
 >({
 	subscribers,
 	availableConnections: [],
-	setupConnectionListeners: (conn: DataConnection, direction: "inbound" | "outbound") => {
+	setupConnectionListeners: (
+		conn: DataConnection,
+		direction: "inbound" | "outbound",
+	) => {
 		conn
 			.on("open", () => {
 				console.debug("[P2P] Connection opened", conn.peer, performance.now())
@@ -71,7 +76,7 @@ const peer = $state<
 				console.debug("Received from", conn.peer, data)
 
 				const message = data as { method?: P2PMessageType; result?: unknown }
-				
+
 				if (message.method) {
 					notify(message.method, conn.peer, data)
 				} else if (Object.hasOwn(message, "result")) {
@@ -82,7 +87,10 @@ const peer = $state<
 			})
 			.on("close", () => {
 				console.log("[P2P] Connection closed", conn.peer)
-				peer.availableConnections.splice(peer.availableConnections.indexOf(conn.peer), 1)
+				peer.availableConnections.splice(
+					peer.availableConnections.indexOf(conn.peer),
+					1,
+				)
 			})
 			.on("error", (err) => {
 				console.error("Connection error", conn.peer, err)
@@ -137,7 +145,9 @@ const { children } = $props()
 </script>
 
 {#if !peer.id}
-	<p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">Connecting...</p>
+	<p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+		Connecting...
+	</p>
 {:else}
 	<DebugString peerId={peer.id} openConnections={peer.availableConnections} />
 	{@render children()}

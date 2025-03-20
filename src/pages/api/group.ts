@@ -6,7 +6,7 @@ import { generateGroupCode } from "../../utils/code-utils"
 import type { GroupStateUpdate } from "../../metronome/networking/providers/GroupProvider.svelte"
 
 // Type definitions
-interface Group {
+type Group = {
 	code: string
 	members: Set<string> // Set of peerIDs
 	leader: string // peerID of the leader
@@ -76,6 +76,9 @@ const removeMemberFromGroup = (peerId: string): void => {
 	if (group.leader === peerId) {
 		// Pick the first member as the new leader
 		const newLeader = Array.from(group.members)[0]
+
+		if (!newLeader) throw new Error("No members left in group")
+
 		group.leader = newLeader
 		console.log(`Assigned new leader ${newLeader} for group ${groupCode}`)
 	}

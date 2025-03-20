@@ -44,4 +44,4 @@ $effect(() => {
 })
 </script>
 
-<DebugString metronomeState={metronomeState} waitingForInitialState={waitingForInitialState} />
+<DebugString {metronomeState} {waitingForInitialState} />

@@ -1,9 +1,8 @@
 # Component Structure
 
 - Metronome
-    - Controls
-    - Audio
-    - Networking
-        - PeerToPeerProvider
-            - Group
-            
+  - Controls
+  - Audio
+  - Networking
+    - PeerToPeerProvider
+      - Group
