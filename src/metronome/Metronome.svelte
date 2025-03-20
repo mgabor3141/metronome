@@ -1,3 +1,4 @@
+<!-- @hmr:keep-all -->
 <script lang="ts" module>
 /**
  * Metronome component module script
@@ -25,6 +26,7 @@ export interface MetronomeState {
 
 export type TimingState = {
 	offset: number
+	ready: boolean
 }
 
 /**
@@ -55,8 +57,11 @@ let metronomeState = $state<MetronomeState>({
 	referenceTime: undefined,
 })
 
+let waitingForInitialState = $state(true)
+
 let timingState = $state<TimingState>({
 	offset: 0,
+	ready: false,
 })
 
 // Local audio playback state (may differ from network state due to autoplay restrictions)
@@ -90,6 +95,8 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 <Controls
 	{metronomeState}
 	{hasUserInteracted}
+	timingReady={timingState.ready}
+	initialStateReady={!waitingForInitialState}
 	onStateUpdate={localStateUpdate}
 	onTogglePlayback={() => {
 		togglePlayback(!hasUserInteracted)
@@ -97,7 +104,7 @@ const togglePlayback = (firstLocalPlay: boolean = false): void => {
 	}}
 />
 
-<Networking bind:metronomeState bind:timingState />
+<Networking bind:metronomeState bind:timingState bind:waitingForInitialState />
 
 <Audio
 	bind:metronomeState

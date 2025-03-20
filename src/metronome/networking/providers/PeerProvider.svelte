@@ -3,16 +3,30 @@ import { getContext, onDestroy, onMount, setContext } from "svelte"
 
 const PEER_CONTEXT_KEY = Symbol("peer")
 
-export type P2PMessageType = "timesync" | "metronomeState"
+export type P2PMessageType =
+	| "timesync"
+	| "metronomeState"
+	| "requestInitialState"
 
 export type PeerDataCallback<T> = (from: string, data: T) => void
 
 export type PeerContext = {
 	instance: Peer
 	id: string
+	/**
+	 * Array of peer IDs that have open connections that have handlers set up
+	 */
+	availableConnections: string[]
 	subscribers: Record<P2PMessageType, PeerDataCallback<unknown>[]>
-	setupConnectionListeners: (conn: DataConnection) => void
+	setupConnectionListeners: (
+		conn: DataConnection,
+		direction: "inbound" | "outbound",
+	) => void
 	subscribe: (
+		method: P2PMessageType,
+		callback: (from: string, data: unknown) => void,
+	) => void
+	unsubscribe: (
 		method: P2PMessageType,
 		callback: (from: string, data: unknown) => void,
 	) => void
@@ -26,11 +40,13 @@ export const getPeer = () => {
 <script lang="ts">
 import Peer from "peerjs"
 import type { DataConnection } from "peerjs"
+  import DebugString from "../../../components/DebugString.svelte";
 
 const subscribers = $state<Record<P2PMessageType, PeerDataCallback<unknown>[]>>(
 	{
 		timesync: [],
 		metronomeState: [],
+		requestInitialState: [],
 	},
 )
 
@@ -42,24 +58,31 @@ const peer = $state<
 	Omit<PeerContext, "instance" | "id"> & Partial<PeerContext>
 >({
 	subscribers,
-	setupConnectionListeners: (conn: DataConnection) => {
+	availableConnections: [],
+	setupConnectionListeners: (conn: DataConnection, direction: "inbound" | "outbound") => {
 		conn
 			.on("open", () => {
-				console.log("Connection opened", conn.peer)
+				console.debug("[P2P] Connection opened", conn.peer, performance.now())
+				if (direction === "inbound") {
+					peer.availableConnections.push(conn.peer)
+				}
 			})
 			.on("data", (data) => {
 				console.debug("Received from", conn.peer, data)
 
-				if ((data as { method: P2PMessageType }).method) {
-					notify((data as { method: P2PMessageType }).method, conn.peer, data)
-				} else if (Object.hasOwn(data as { result?: unknown }, "result")) {
+				const message = data as { method?: P2PMessageType; result?: unknown }
+				
+				if (message.method) {
+					notify(message.method, conn.peer, data)
+				} else if (Object.hasOwn(message, "result")) {
 					notify("timesync", conn.peer, data)
 				} else {
 					console.warn("Unknown data", conn.peer, data)
 				}
 			})
 			.on("close", () => {
-				console.log("Connection closed", conn.peer)
+				console.log("[P2P] Connection closed", conn.peer)
+				peer.availableConnections.splice(peer.availableConnections.indexOf(conn.peer), 1)
 			})
 			.on("error", (err) => {
 				console.error("Connection error", conn.peer, err)
@@ -70,7 +93,14 @@ const peer = $state<
 		callback: (from: string, data: unknown) => void,
 	) => {
 		// Add callback to our subscribers
-		subscribers[method] = [...(subscribers[method] ?? []), callback]
+		subscribers[method].push(callback)
+	},
+	unsubscribe: (
+		method: P2PMessageType,
+		callback: (from: string, data: unknown) => void,
+	) => {
+		// Remove callback from our subscribers
+		subscribers[method] = subscribers[method].filter((cb) => cb !== callback)
 	},
 })
 
@@ -84,13 +114,13 @@ onMount(() => {
 	}
 
 	newPeer.on("open", (id) => {
-		console.log(`PeerJS: Registered as ${id}`)
+		console.log(`[P2P] Registered as ${id}`)
 		peer.instance = newPeer
 		peer.id = id
 
 		newPeer.on("connection", (conn) => {
-			console.log("PeerJS: New connection from", conn.peer)
-			peer.setupConnectionListeners(conn)
+			console.log("[P2P] New connection from", conn.peer)
+			peer.setupConnectionListeners(conn, "inbound")
 		})
 	})
 
@@ -109,8 +139,6 @@ const { children } = $props()
 {#if !peer.id}
 	<p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">Connecting...</p>
 {:else}
-	<div class="text-gray-500 dark:text-gray-400 mt-4 text-center">
-		<p>{peer.id}</p>
-	</div>
+	<DebugString peerId={peer.id} openConnections={peer.availableConnections} />
 	{@render children()}
 {/if}

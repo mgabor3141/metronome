@@ -16,6 +16,10 @@ interface MetronomeUIProps {
 	metronomeState: MetronomeState
 	// Local playing state (for audio playback)
 	hasUserInteracted: boolean
+	// Whether we have time sync
+	timingReady: boolean
+	// Whether we have initial state
+	initialStateReady: boolean
 	// Single event handler for state updates
 	onStateUpdate: (partialState: PartialMetronomeState) => void
 	// Toggle playback handler
@@ -136,7 +140,8 @@ const handleBeatUnitChange = (event: Event): void => {
 	<!-- Playback Controls -->
 	<div class="mt-6 flex flex-col items-center">
 		<button 
-			class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+			class="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-blue-400 disabled:text-gray-500"
+			disabled={!props.timingReady || !props.initialStateReady}
 			onclick={props.onTogglePlayback}
 		>
 			{#if props.metronomeState.isPlaying && props.hasUserInteracted}
@@ -149,7 +154,7 @@ const handleBeatUnitChange = (event: Event): void => {
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
 				</svg>
-				Start
+				{!props.timingReady || !props.initialStateReady ? "Synchronizing" : "Start"}
 			{/if}
 		</button>
 		

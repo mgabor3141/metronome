@@ -86,7 +86,7 @@ const removeMemberFromGroup = (peerId: string): void => {
  */
 const broadcastToGroup = (
 	groupCode: string,
-	message: GroupStateUpdate,
+	message: Omit<GroupStateUpdate, "needInitialState">,
 	excludePeerId?: string,
 ): void => {
 	const group = groups.get(groupCode)

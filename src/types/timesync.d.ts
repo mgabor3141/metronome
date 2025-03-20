@@ -3,7 +3,7 @@ declare module "timesync" {
 		server?: string
 		peers?: string[]
 		delay?: number
-		interval?: number
+		interval?: number | null
 		timeout?: number
 		repeat?: number
 		now?: () => number

@@ -115,7 +115,7 @@ const updatePlaybackWithState = async (
 	const transport = Tone.getTransport()
 
 	if (!state.isPlaying) {
-		transport.stop()
+		if (transport.state === "started") transport.stop()
 		return
 	}
 

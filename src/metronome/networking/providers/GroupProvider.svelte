@@ -2,6 +2,7 @@
 import { getContext, onDestroy, onMount, setContext } from "svelte"
 import { getPeer } from "./PeerProvider.svelte"
 import { getGroupCode, saveGroupCode } from "../../../utils/code-utils"
+import DebugString from "../../../components/DebugString.svelte"
 
 const GROUP_CONTEXT_KEY = Symbol("group")
 const GROUP_URL_PARAM = "join"
@@ -10,7 +11,11 @@ export const getGroup = () => {
 	return getContext<GroupState>(GROUP_CONTEXT_KEY)
 }
 
-export type ConnectionStatus = "connecting" | "connected" | "disconnected"
+export type ConnectionStatus =
+	| "connecting"
+	| "initializing"
+	| "connected"
+	| "disconnected"
 
 export type GroupState = {
 	groupCode: string
@@ -84,7 +89,7 @@ onMount(() => {
 
 	// Handle connection open
 	websocket.onopen = () => {
-		console.log("WebSocket connection established")
+		console.log("[SERVER] WebSocket connection established")
 		websocket?.send(
 			JSON.stringify({
 				type: "register",
@@ -93,28 +98,32 @@ onMount(() => {
 			}),
 		)
 
-		groupState.connectionStatus = "connected"
+		groupState.connectionStatus = "initializing"
 	}
 
 	// Handle incoming messages
 	websocket.onmessage = async (event) => {
 		const message: GroupStateUpdate = JSON.parse(event.data)
-		console.debug("Received WebSocket message:", message)
+		console.debug("[SERVER] Received WebSocket message:", message)
 
 		// Handle group updates
 		if (message.type === "groupUpdate") {
 			saveGroupCode(message.groupCode)
 
+			const isGroupLeader = message.leader === peer.id
+
 			Object.assign(groupState, {
 				...message,
-				isGroupLeader: message.leader === peer.id,
+				isGroupLeader,
 			})
+
+			groupState.connectionStatus = "connected"
 		}
 	}
 
 	// Handle connection close
 	websocket.onclose = () => {
-		console.log("WebSocket connection closed")
+		console.log("[SERVER] WebSocket connection closed")
 		groupState.connectionStatus = "disconnected"
 	}
 
@@ -133,9 +142,6 @@ onDestroy(() => {
 {#if groupState.connectionStatus !== "connected"}
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">Joining group...</p>
 {:else}
-	<div class="text-gray-500 dark:text-gray-400 mt-4 text-center">
-		<p>{groupState.isGroupLeader ? "Leader" : "Follower"}</p>
-		<p>{groupState.members.length} members in group</p>
-	</div>
+	<DebugString groupState={groupState} />
     {@render children()}
 {/if}
