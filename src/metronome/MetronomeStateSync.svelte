@@ -1,25 +1,31 @@
 <!-- @hmr:keep-all -->
 <script lang="ts">
-import { onDestroy, onMount } from "svelte"
+import { onDestroy } from "svelte"
 import { broadcast } from "./providers/PeerConnectionsProvider.svelte"
-import { getPeer } from "./providers/PeerProvider.svelte"
+import {
+	getPeerContext,
+	type PeerDataCallback,
+} from "./providers/PeerProvider.svelte"
 import { deepEqual } from "../utils/object-utils"
 import {
 	getMetronomeState,
 	type MetronomeState,
 } from "./providers/MetronomeStateProvider.svelte"
+import { getStatus } from "./providers/StatusProvider.svelte"
 
-const peer = getPeer()
+const status = getStatus()
+const peer = getPeerContext()
 const metronomeState = getMetronomeState()
 
-const lastKnownState = $state<MetronomeState>({ ...metronomeState })
+let lastKnownState = { ...metronomeState }
 
-const stateHandler = (_from: string, data: unknown) => {
+const stateHandler: PeerDataCallback<unknown> = (_peer, _from, data) => {
 	Object.assign(metronomeState, (data as { state: MetronomeState }).state)
-	Object.assign(lastKnownState, metronomeState)
+	lastKnownState = { ...metronomeState }
 }
 
-onMount(() => {
+$effect(() => {
+	if (!status.connected) return
 	peer.subscribe("metronomeState", stateHandler)
 })
 
@@ -32,9 +38,11 @@ $effect(() => {
 		// We send the update if there is already an assigned reference time or if it's a stop state
 		(metronomeState.referenceTime || metronomeState.isPlaying === false) &&
 		// ...and it's different from the last known state
-		!deepEqual(metronomeState, lastKnownState)
+		!deepEqual(metronomeState, lastKnownState) &&
+		// ...and we are connected
+		status.connected
 	) {
-		Object.assign(lastKnownState, metronomeState)
+		lastKnownState = { ...metronomeState }
 		broadcast(peer.instance, {
 			method: "metronomeState",
 			state: metronomeState,

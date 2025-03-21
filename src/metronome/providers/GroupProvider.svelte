@@ -1,7 +1,7 @@
 <!-- @hmr:keep-all -->
 <script lang="ts" module>
 import { getContext, onDestroy, onMount, setContext } from "svelte"
-import { getPeer } from "./PeerProvider.svelte"
+import { getPeerContext } from "./PeerProvider.svelte"
 import { getGroupCode, saveGroupCode } from "../../utils/code-utils"
 import DebugString from "../../components/DebugString.svelte"
 
@@ -12,18 +12,11 @@ export const getGroup = () => {
 	return getContext<GroupState>(GROUP_CONTEXT_KEY)
 }
 
-export type ConnectionStatus =
-	| "connecting"
-	| "initializing"
-	| "connected"
-	| "disconnected"
-
 export type GroupState = {
 	groupCode: string
 	leader: string
 	members: string[]
 	isGroupLeader: boolean
-	connectionStatus: ConnectionStatus
 }
 
 export type GroupStateUpdate = Omit<
@@ -35,19 +28,20 @@ export type GroupStateUpdate = Omit<
 </script>
 
 <script lang="ts">
-const { children } = $props()
+import { getStatus } from "./StatusProvider.svelte"
+
+const status = getStatus()
 
 const groupState = $state<GroupState>({
 	groupCode: "",
 	leader: "",
 	members: [],
 	isGroupLeader: false,
-	connectionStatus: "disconnected",
 })
 
 setContext(GROUP_CONTEXT_KEY, groupState)
 
-const peer = getPeer()
+const peer = getPeerContext()
 
 let websocket: WebSocket | null = null
 
@@ -65,17 +59,14 @@ const getGroupCodeFromUrl = () => {
 	return urlGroupCode
 }
 
+let websocketOpen = $state(false)
+const readyForRegister = $derived(websocketOpen && status.peerConnected)
+
 onMount(() => {
 	// Close any existing connection
 	if (websocket && websocket.readyState === WebSocket.OPEN) {
 		websocket.close()
 	}
-
-	// Get group code from URL if present
-	const urlGroupCode = getGroupCodeFromUrl()
-
-	// Check if we have a stored group code
-	const storedGroupCode = getGroupCode()
 
 	// Determine if we're on localhost or production
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
@@ -85,21 +76,12 @@ onMount(() => {
 	const wsUrl = `${protocol}//${host}/api/group`
 
 	// Create WebSocket connection
-	groupState.connectionStatus = "connecting"
 	websocket = new WebSocket(wsUrl)
 
 	// Handle connection open
 	websocket.onopen = () => {
 		console.log("[SERVER] WebSocket connection established")
-		websocket?.send(
-			JSON.stringify({
-				type: "register",
-				peerId: peer.id,
-				groupCode: urlGroupCode || storedGroupCode,
-			}),
-		)
-
-		groupState.connectionStatus = "initializing"
+		websocketOpen = true
 	}
 
 	// Handle incoming messages
@@ -118,33 +100,47 @@ onMount(() => {
 				isGroupLeader,
 			})
 
-			groupState.connectionStatus = "connected"
+			status.serverConnected = true
 		}
 	}
 
 	// Handle connection close
 	websocket.onclose = () => {
 		console.log("[SERVER] WebSocket connection closed")
-		groupState.connectionStatus = "disconnected"
+		// TODO: Reconnect
+		status.serverConnected = false
 	}
 
 	// Handle connection errors
 	websocket.onerror = (error) => {
 		console.error("WebSocket error:", error)
-		groupState.connectionStatus = "disconnected"
 	}
 })
 
 onDestroy(() => {
 	websocket?.close()
 })
+
+$effect(() => {
+	if (readyForRegister) {
+		// Get group code from URL if present
+		const urlGroupCode = getGroupCodeFromUrl()
+
+		// Check if we have a stored group code
+		const storedGroupCode = getGroupCode()
+
+		websocket?.send(
+			JSON.stringify({
+				type: "register",
+				peerId: peer.id,
+				groupCode: urlGroupCode || storedGroupCode,
+			}),
+		)
+	}
+})
+
+const { children } = $props()
 </script>
 
-{#if groupState.connectionStatus !== "connected"}
-	<p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-		Joining group...
-	</p>
-{:else}
-	{@render children()}
-	<DebugString {groupState} />
-{/if}
+{@render children()}
+<DebugString {groupState} />

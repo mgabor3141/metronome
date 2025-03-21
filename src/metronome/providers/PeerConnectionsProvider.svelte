@@ -6,10 +6,11 @@ import { getGroup } from "./GroupProvider.svelte"
 import {
 	type P2PMessageType,
 	type PeerContext,
-	getPeer,
+	getPeerContext,
 } from "./PeerProvider.svelte"
 import { getContext, onDestroy, setContext } from "svelte"
 import DebugString from "../../components/DebugString.svelte"
+import { getStatus } from "./StatusProvider.svelte"
 
 const PEER_CONNECTIONS_CONTEXT_KEY = Symbol("peerConnections")
 
@@ -98,9 +99,8 @@ const syncConnections = (peer: PeerContext, targets: string[]) => {
 </script>
 
 <script lang="ts">
-const { children } = $props()
-
-const peer = getPeer()
+const status = getStatus()
+const peer = getPeerContext()
 const groupState = getGroup()
 
 const peerConnections = $state<PeerConnectionsContext>({
@@ -111,11 +111,15 @@ setContext(PEER_CONNECTIONS_CONTEXT_KEY, peerConnections)
 
 $effect(() => {
 	peerConnections.live = false
+	if (!status.connected) return
+
 	console.debug("[P2P] Updating connection pool...")
 	syncConnections(peer, groupState.members)
 })
 
 $effect(() => {
+	if (!status.connected) return
+
 	const allConnected = groupState.members
 		.filter((id) => id !== peer.id)
 		.every((id) => peer.availableConnections.includes(id))
@@ -134,13 +138,9 @@ onDestroy(() => {
 	peerConnections.live = false
 	disconnectAll(peer.instance)
 })
+
+const { children } = $props()
 </script>
 
-{#if !peerConnections.live}
-	<p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-		Connecting...
-	</p>
-{:else}
-	{@render children()}
-	<DebugString {peerConnections} />
-{/if}
+{@render children()}
+<DebugString {peerConnections} />

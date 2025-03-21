@@ -1,6 +1,6 @@
 <!-- @hmr:keep-all -->
 <script lang="ts" module>
-import { getContext, onDestroy, onMount, setContext } from "svelte"
+import { getContext, onDestroy, setContext } from "svelte"
 
 export type TimeSignature = {
 	beatsPerMeasure: number
@@ -29,19 +29,26 @@ export const setMetronomeStateLocal = (
 	current: MetronomeState,
 	newState: Partial<MetronomeState>,
 ) => {
-	Object.assign(current, { ...newState, referenceTime: undefined })
+	const tmp = { ...current, ...newState }
+	tmp.referenceTime =
+		// We normally unset the reference time, unless it's a join event
+		current.isPlaying === newState?.isPlaying
+			? current.referenceTime
+			: undefined
+
+	Object.assign(current, tmp)
 }
 </script>
 
 <script lang="ts">
-import { getPeerConnections, send } from "./PeerConnectionsProvider.svelte"
-import { getPeer } from "./PeerProvider.svelte"
-import { getGroup } from "./GroupProvider.svelte"
 import DebugString from "../../components/DebugString.svelte"
+import { getGroup } from "./GroupProvider.svelte"
+import { getPeerConnections, send } from "./PeerConnectionsProvider.svelte"
+import { getPeerContext, type PeerDataCallback } from "./PeerProvider.svelte"
+import { getStatus } from "./StatusProvider.svelte"
 
-const { children } = $props()
-
-const peer = getPeer()
+const status = getStatus()
+const peerContext = getPeerContext()
 const groupState = getGroup()
 const peerConnections = getPeerConnections()
 
@@ -49,45 +56,56 @@ const metronomeState = $state<MetronomeState>({} as MetronomeState)
 
 setContext(METRONOME_STATE_CONTEXT_KEY, metronomeState)
 
-let initialStateRequestHandler: (from: string) => void
+const initialStateRequestHandler: PeerDataCallback<unknown> = (peer, from) => {
+	console.log("[INIT] Received initial state request from", from)
+	send(
+		peer,
+		{
+			method: "metronomeState",
+			state: metronomeState,
+		},
+		from,
+	)
+}
 
-onMount(() => {
-	initialStateRequestHandler = (from) => {
-		send(
-			peer.instance,
-			{
-				method: "metronomeState",
-				state: metronomeState,
-			},
-			from,
-		)
-	}
+$effect(() => {
+	if (!status.connected) return
 
-	peer.subscribe("requestInitialState", initialStateRequestHandler)
+	peerContext.subscribe("requestInitialState", initialStateRequestHandler)
 })
 
 onDestroy(() => {
-	peer.unsubscribe("requestInitialState", initialStateRequestHandler)
+	peerContext.unsubscribe("requestInitialState", initialStateRequestHandler)
 })
 
 $effect(() => {
-	if (!metronomeState.bpm && peerConnections.live) {
-		if (groupState.isGroupLeader) {
-			Object.assign(metronomeState, {
-				bpm: 120,
-				timeSignature: {
-					beatsPerMeasure: 4,
-					beatUnit: 4,
-				},
-				isPlaying: false,
-				referenceTime: undefined,
-			})
-			return
-		}
+	// We can't get initial state if we're not connected yet, and we don't need it if we have a state already
+	if (status.connected === undefined || metronomeState.bpm) return
 
-		console.log("Requesting initial state...")
+	if (
+		// If we are connected as group leader or have failed to connect
+		status.connected === false ||
+		(status.connected === true && groupState.isGroupLeader)
+	) {
+		// We create our own state
+		console.log("[INIT] Initializing as leader")
+		Object.assign(metronomeState, {
+			bpm: 120,
+			timeSignature: {
+				beatsPerMeasure: 4,
+				beatUnit: 4,
+			},
+			isPlaying: false,
+			referenceTime: undefined,
+		})
+		return
+	} else {
+		// If we need to request the state instead, we need to wait for peer connections
+		if (!peerConnections.live) return
+
+		console.log("[INIT] Requesting initial state...")
 		send(
-			peer.instance,
+			peerContext.instance,
 			{
 				method: "requestInitialState",
 			},
@@ -95,6 +113,8 @@ $effect(() => {
 		)
 	}
 })
+
+const { children } = $props()
 </script>
 
 {@render children()}

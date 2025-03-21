@@ -3,6 +3,7 @@ import {
 	getMetronomeState,
 	setMetronomeStateLocal,
 } from "../providers/MetronomeStateProvider.svelte"
+import { getStatus } from "../providers/StatusProvider.svelte"
 
 // UI constants
 const MIN_BPM = 40
@@ -10,7 +11,10 @@ const MAX_BPM = 240
 const VALID_BEAT_UNITS = [2, 4, 8, 16]
 const MAX_BEATS_PER_MEASURE = 12
 
+const status = getStatus()
 const metronomeState = getMetronomeState()
+
+const isPlaying = $derived(metronomeState.isPlaying && status.hasUserInteracted)
 
 // UI-specific derived values
 const beatDurationMs = $derived(60000 / metronomeState.bpm)
@@ -33,7 +37,10 @@ const handleBeatsPerMeasureChange = (event: Event): void => {
 
 	if (value >= 1 && value <= MAX_BEATS_PER_MEASURE) {
 		setMetronomeStateLocal(metronomeState, {
-			timeSignature: { ...metronomeState.timeSignature, beatsPerMeasure: value },
+			timeSignature: {
+				...metronomeState.timeSignature,
+				beatsPerMeasure: value,
+			},
 		})
 	}
 }
@@ -131,12 +138,15 @@ const handleBeatUnitChange = (event: Event): void => {
 	<div class="mt-6 flex flex-col items-center">
 		<button
 			class="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400 disabled:text-gray-500"
-			onclick={() =>
+			onclick={() => {
+				const wasPlaying = isPlaying
+				status.hasUserInteracted = true
 				setMetronomeStateLocal(metronomeState, {
-					isPlaying: !metronomeState.isPlaying,
-				})}
+					isPlaying: !wasPlaying,
+				})
+			}}
 		>
-			{#if metronomeState.isPlaying}
+			{#if isPlaying}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"
@@ -160,7 +170,9 @@ const handleBeatUnitChange = (event: Event): void => {
 						clip-rule="evenodd"
 					/>
 				</svg>
-				Start
+				{status.hasUserInteracted || !metronomeState.isPlaying
+					? "Start"
+					: "Join"}
 			{/if}
 		</button>
 	</div>

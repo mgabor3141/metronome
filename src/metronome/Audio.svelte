@@ -13,11 +13,11 @@ import {
 import { deepEqual } from "../utils/object-utils"
 import { getMetronomeState } from "./providers/MetronomeStateProvider.svelte"
 import { getClock } from "./providers/ClockProvider.svelte"
+import { getStatus } from "./providers/StatusProvider.svelte"
 
+const status = getStatus()
 const metronomeState = getMetronomeState()
 const clock = getClock()
-
-let lastKnownTimingOffset = clock.offset
 
 // Constants for audio settings
 const NOTE_DURATION = 0.1
@@ -26,28 +26,10 @@ const REGULAR_NOTE = "G4"
 const ACCENT_VELOCITY = 0.7
 const REGULAR_VELOCITY = 0.6
 
-let lastKnownState: MetronomeState = { ...metronomeState }
-let audioInitialized = $state(false)
-
-/**
- * Initializes the audio context and Tone.js
- * Only called after a user gesture (when play is clicked)
- */
-const initAudio = async (): Promise<void> => {
-	if (audioInitialized) return
-
-	try {
-		if (Tone.getContext().state === "closed") {
-			Tone.setContext(new AudioContext())
-		}
-
-		// Initialize audio context
-		audioInitialized = true
-		console.log("Audio context initialized successfully")
-	} catch (error) {
-		console.error("Failed to initialize audio context:", error)
-		throw error
-	}
+let lastKnownTimingOffset = clock.offset
+let lastKnownState: MetronomeState & { hasUserInteracted: boolean } = {
+	...metronomeState,
+	hasUserInteracted: status.hasUserInteracted,
 }
 
 // References to Tone.js objects - defined outside of functions to persist between renders
@@ -94,13 +76,7 @@ const createMetronomeSequence = () => {
  */
 const updatePlaybackWithState = async (
 	state: MetronomeState,
-	justStarted: boolean,
 ): Promise<void> => {
-	// Initialize audio if needed
-	if (!audioInitialized) {
-		await initAudio()
-	}
-
 	// Make sure audio context is running
 	if (Tone.getContext().state !== "running") {
 		await Tone.start()
@@ -112,6 +88,8 @@ const updatePlaybackWithState = async (
 		if (transport.state === "started") transport.stop()
 		return
 	}
+
+	const isStarting = transport.state !== "started"
 
 	// Set the tempo
 	transport.bpm.value = state.bpm
@@ -139,19 +117,19 @@ const updatePlaybackWithState = async (
 			currentTime: clock.now(),
 			referenceTime: state.referenceTime,
 			measureLengthSeconds: transport.toSeconds("1m"),
-			optionalStartDelaySeconds: justStarted
+			optionalStartDelaySeconds: isStarting
 				? START_DELAY + Tone.getContext().lookAhead
-				: 0,
+				: Tone.getContext().lookAhead,
 		})
 
-		if (justStarted) {
+		if (isStarting) {
 			transport.start(`+${START_DELAY}`, transportOffset)
 		} else {
 			transport.position = transportOffset
 		}
 	} else {
 		// Otherwise we calculate the reference time
-		if (justStarted) {
+		if (isStarting) {
 			// If we don't have a reference time, and we are starting
 			metronomeState.referenceTime = getReferenceTime({
 				currentTime: clock.now(),
@@ -165,6 +143,7 @@ const updatePlaybackWithState = async (
 			metronomeState.referenceTime = getReferenceTime({
 				currentTime: clock.now(),
 				transportSeconds: transport.progress * transport.toSeconds("1m"),
+				optionalStartDelaySeconds: Tone.getContext().lookAhead,
 			})
 		}
 	}
@@ -174,16 +153,23 @@ const updatePlaybackWithState = async (
 $effect(() => {
 	if (
 		!deepEqual(
-			{ ...metronomeState, referenceTime: undefined },
+			{
+				...metronomeState,
+				hasUserInteracted: status.hasUserInteracted,
+				referenceTime: undefined,
+			},
 			{ ...lastKnownState, referenceTime: undefined },
 		) ||
 		lastKnownTimingOffset !== clock.offset
 	) {
-		updatePlaybackWithState(
-			metronomeState,
-			lastKnownState?.isPlaying !== metronomeState.isPlaying,
-		)
-		lastKnownState = { ...metronomeState }
+		if (status.hasUserInteracted) {
+			updatePlaybackWithState(metronomeState)
+		}
+
+		lastKnownState = {
+			...metronomeState,
+			hasUserInteracted: status.hasUserInteracted,
+		}
 		lastKnownTimingOffset = clock.offset
 	}
 })

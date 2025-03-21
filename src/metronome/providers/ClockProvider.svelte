@@ -17,15 +17,17 @@ import * as timesync from "timesync"
 import type { TimeSyncInstance } from "timesync"
 import { onDestroy, onMount } from "svelte"
 import { getGroup } from "./GroupProvider.svelte"
-import { getPeer } from "./PeerProvider.svelte"
+import { getPeerContext, type PeerDataCallback } from "./PeerProvider.svelte"
 import {
 	type P2PMessage,
 	getPeerConnections,
 	send,
 } from "./PeerConnectionsProvider.svelte"
 import DebugString from "../../components/DebugString.svelte"
+import { getStatus } from "./StatusProvider.svelte"
 
-const peer = getPeer()
+const status = getStatus()
+const peer = getPeerContext()
 const groupState = getGroup()
 const peerConnections = getPeerConnections()
 
@@ -43,7 +45,7 @@ const clockState = $state<ClockState>({
 setContext(CLOCK_CONTEXT_KEY, clockState)
 
 let syncInterval = $state<Timer>()
-let handler: (from: string, data: unknown) => void
+let handler: PeerDataCallback<unknown>
 
 onMount(() => {
 	ts = timesync.create({
@@ -72,7 +74,7 @@ onMount(() => {
 		console.error("[TIME] Timesync error:", error)
 	})
 
-	handler = (from, data) => {
+	handler = (_, from, data) => {
 		ts?.receive(from, data)
 	}
 
@@ -89,15 +91,8 @@ onDestroy(() => {
 $effect(() => {
 	if (!ts) throw new Error("Timesync not initialized")
 
-	if (!peerConnections.live) {
-		clearInterval(syncInterval)
-		syncInterval = undefined
-		return
-	}
-
 	if (groupState.isGroupLeader) {
 		// Leader syncs with noone
-		// Note that in case of leader migration the previous offset remains in ts internally and our state
 		ts.options.peers = []
 		clockState.synced = true
 		return
@@ -105,10 +100,19 @@ $effect(() => {
 
 	ts.options.peers = [groupState.leader]
 
-	if (!syncInterval) {
+	const sync = () => {
+		if (!ts) throw new Error("Timesync not initialized")
+		if (!status.connected || !peerConnections.live) {
+			console.log("[TIME] Not connected or peer not live, skipping sync")
+			return
+		}
 		ts.sync()
+	}
+
+	if (!syncInterval && status.connected && peerConnections.live) {
+		sync()
 		syncInterval = setInterval(() => {
-			ts?.sync()
+			sync()
 		}, 30_000)
 	}
 })
