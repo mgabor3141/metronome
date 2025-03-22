@@ -57,12 +57,10 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
-<div
-	class="metronome-container mx-auto max-w-lg rounded-lg bg-white p-6 shadow-md"
->
+<div class="metronome-container mx-auto max-w-lg rounded-lg p-6 shadow-md">
 	<h1 class="mb-4 text-center text-2xl font-bold">Metronome</h1>
 
-	<div class="current-settings mb-6 rounded-md bg-gray-50 p-4">
+	<div class="current-settings mb-6 rounded-md p-4">
 		<div class="mb-2 text-center text-4xl font-bold">
 			{metronomeState.bpm} BPM
 		</div>
@@ -137,7 +135,7 @@ const handleBeatUnitChange = (event: Event): void => {
 	<!-- Playback Controls -->
 	<div class="mt-6 flex flex-col items-center">
 		<button
-			class="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400 disabled:text-gray-500"
+			class="btn"
 			onclick={() => {
 				const wasPlaying = isPlaying
 				status.hasUserInteracted = true
