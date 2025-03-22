@@ -1,6 +1,32 @@
 diff --git a/node_modules/astro-bun-websocket/.bun-tag-195f3cbdceed1fe5 b/.bun-tag-195f3cbdceed1fe5
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/astro-bun-websocket/.bun-tag-4db8d53e444e8845 b/.bun-tag-4db8d53e444e8845
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/astro-bun-websocket/.bun-tag-7de3623187e4ca16 b/.bun-tag-7de3623187e4ca16
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/NuroDev/astro-bun/package/src/index.ts b/NuroDev/astro-bun/package/src/index.ts
+index 686b83d677d1b717fb2fdd9e76701be51182e357..3c00ff2050433f642ebecd7e44e0e7a423ae8ab0 100644
+--- a/NuroDev/astro-bun/package/src/index.ts
++++ b/NuroDev/astro-bun/package/src/index.ts
+@@ -93,7 +93,6 @@ export default function integration(options?: Options): AstroIntegration {
+   return {
+     name: "astro-bun-websocket",
+     hooks: {
+-      // biome-ignore lint/nursery/useExplicitType: Parent inferred type.
+       'astro:config:setup': ({ addMiddleware, command, updateConfig }) => {
+         updateConfig({
+           vite: {
+@@ -120,6 +119,7 @@ export default function integration(options?: Options): AstroIntegration {
+       },
+       'astro:config:done': (params) => {
+         params.setAdapter(
++          // @ts-ignore patched for strict typescript
+           getAdapter({
+             ...parsedOptions.data,
+             assets: params.config.build.assets,
 diff --git a/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts b/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts
 index fe5540c0440259e8ac3399faceea712d76c6f9da..90ed4def38d2e9e0deb82bd82066a6a83486bb19 100644
 --- a/NuroDev/astro-bun/package/src/websocket/dev-websocket.ts
@@ -14,3 +40,16 @@ index fe5540c0440259e8ac3399faceea712d76c6f9da..90ed4def38d2e9e0deb82bd82066a6a8
          standard.onmessage?.(event)
          standard.dispatchEvent(event)
      })
+diff --git a/NuroDev/astro-bun/package/src/websocket/response.ts b/NuroDev/astro-bun/package/src/websocket/response.ts
+index befb3e1a2ee73fc8f11cd4dd7f6e9d4988fd5968..707f760fc7fd16b70178701fc2b6269abc5c73aa 100644
+--- a/NuroDev/astro-bun/package/src/websocket/response.ts
++++ b/NuroDev/astro-bun/package/src/websocket/response.ts
+@@ -4,7 +4,7 @@ import { pipeline } from "node:stream/promises"
+  * Custom subclass because spec-compliant Response objects can't have a status of 101.
+  */
+ export class UpgradeResponse extends Response {
+-    readonly status = 101
++    override readonly status = 101
+ }
+ 
+ const { Headers } = globalThis

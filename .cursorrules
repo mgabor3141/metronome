@@ -1,0 +1,44 @@
+# General Code Style & Formatting
+
+- Use English for all code and documentation.
+- Avoid using any.
+- Create necessary types.
+- Prefer types over interfaces.
+
+# Naming Conventions
+
+- Use PascalCase for classes and components.
+- Use camelCase for variables, functions, and methods.
+- Use kebab-case for file and directory names, except for components.
+- Use UPPERCASE for environment variables.
+- Avoid magic numbers and define constants.
+
+# Functions & Logic
+
+- Avoid deeply nested blocks by:
+- Using early returns.
+- Extracting logic into utility functions.
+- Use higher-order functions (map, filter, reduce) to simplify logic.
+- Use arrow functions.
+- Write functional-style TypeScript where possible.
+- Use default parameter values instead of null/undefined checks.
+- Use RO-RO (Receive Object, Return Object) for passing and returning multiple parameters.
+- Prefer `const` where possible.
+- Always use `async` and `await` instead of promise methods.
+
+# Styling & UI
+
+- Use Tailwind CSS for styling.
+
+# Tone.js
+
+- Tone.Transport is deprecated.
+
+# Package Management
+
+- Use `bun` as the package manager.
+
+# Svelte
+
+- Use Svelte 5 with the runes syntax.
+- Write idiomatic Svelte.

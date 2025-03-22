@@ -14,6 +14,11 @@ export default [
 	...eslintPluginAstro.configs.recommended,
 	...eslintPluginAstro.configs["jsx-a11y-recommended"],
 	{
+		linterOptions: {
+			reportUnusedInlineConfigs: "error",
+		},
+	},
+	{
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
