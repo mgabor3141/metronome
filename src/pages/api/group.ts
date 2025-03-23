@@ -148,6 +148,11 @@ export const GET: APIRoute = (ctx) => {
 				clients.set(peerId, socket)
 
 				if (message.groupCode) {
+					// Validate group code
+					if (message.groupCode.length !== 4) {
+						throw new Error("Invalid group code")
+					}
+
 					// Join existing group if it exists
 					if (groups.has(message.groupCode)) {
 						addMemberToGroup(message.groupCode, peerId)

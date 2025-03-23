@@ -7,13 +7,15 @@ const groupState = getGroup()
 const connectedFollowers = $derived(groupState.members.length - 1)
 </script>
 
-<div class="flex items-center gap-2">
-	<UserRound class="h-5 w-5" />
-	<NumberFlow
-		class={[
-			"transition-opacity",
-			{ "opacity-0": groupState.members.length <= 1 },
-		]}
-		value={connectedFollowers}
-	/>
+<div class="tooltip tooltip-right" data-tip={`${connectedFollowers} connected`}>
+	<div class="flex items-center gap-2">
+		<UserRound class="size-4" />
+		<NumberFlow
+			class={[
+				"transition-opacity",
+				{ "opacity-0": groupState.members.length <= 1 },
+			]}
+			value={connectedFollowers}
+		/>
+	</div>
 </div>

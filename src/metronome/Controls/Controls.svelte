@@ -6,9 +6,11 @@ import {
 import { getStatus } from "../providers/StatusProvider.svelte"
 import { Play, Pause } from "@lucide/svelte"
 import DebugInfo from "./DebugInfo.svelte"
-import NetworkingInfo from "./NetworkingInfo.svelte"
 import FollowerCount from "./FollowerCount.svelte"
-
+import Title from "./Title.svelte"
+import JoinInfo from "./JoinInfo.svelte"
+import JoinModal from "./JoinModal.svelte"
+import LeaveModal from "./LeaveModal.svelte"
 // UI constants
 const MIN_BPM = 40
 const MAX_BPM = 240
@@ -58,18 +60,31 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
-<div class="flex h-[100dvh] flex-col gap-16 p-6 sm:p-12">
+<div class="flex h-[100dvh] flex-col gap-8 p-6 sm:p-12">
 	<div class="flex flex-1 flex-col items-center justify-end">
-		<h1 class="font-title text-center text-4xl font-light tracking-tighter">
-			Network Metronome
-		</h1>
+		<Title />
 	</div>
 
 	<div
 		class="bg-base-200 mx-auto flex w-full max-w-md flex-col items-stretch gap-6 rounded-lg p-6"
 	>
-		<div class="flex flex-wrap items-center justify-between">
-			<div class="flex items-baseline gap-2 text-left text-2xl font-bold">
+		<div class="flex items-center justify-center gap-2">
+			<button
+				class="btn btn-sm btn-neutral"
+				onclick={() =>
+					setMetronomeStateLocal(metronomeState, {
+						bpm: metronomeState.bpm - 1,
+					})}>-1</button
+			>
+			<button
+				class="btn btn-sm btn-neutral"
+				onclick={() =>
+					setMetronomeStateLocal(metronomeState, {
+						bpm: metronomeState.bpm - 5,
+					})}>-5</button
+			>
+
+			<div class="mx-4 flex items-baseline gap-2 text-left text-2xl font-bold">
 				<input
 					type="number"
 					min={MIN_BPM}
@@ -80,7 +95,33 @@ const handleBeatUnitChange = (event: Event): void => {
 				/>
 				<label for="bpm-input">BPM</label>
 			</div>
+			<button
+				class="btn btn-sm btn-neutral"
+				onclick={() =>
+					setMetronomeStateLocal(metronomeState, {
+						bpm: metronomeState.bpm + 5,
+					})}>+5</button
+			>
+			<button
+				class="btn btn-sm btn-neutral"
+				onclick={() =>
+					setMetronomeStateLocal(metronomeState, {
+						bpm: metronomeState.bpm + 1,
+					})}>+1</button
+			>
+		</div>
 
+		<input
+			id="bpm-input"
+			type="range"
+			min={MIN_BPM}
+			max={MAX_BPM}
+			value={metronomeState.bpm}
+			oninput={handleBpmChange}
+			class="range range-accent w-full"
+		/>
+
+		<div class="flex flex-wrap items-end justify-between">
 			<div class="time-signature-settings">
 				<div class="flex items-center gap-2">
 					<select
@@ -106,22 +147,9 @@ const handleBeatUnitChange = (event: Event): void => {
 					</select>
 				</div>
 			</div>
-		</div>
-
-		<input
-			id="bpm-input"
-			type="range"
-			min={MIN_BPM}
-			max={MAX_BPM}
-			value={metronomeState.bpm}
-			oninput={handleBpmChange}
-			class="range range-accent w-full"
-		/>
-
-		<div class="flex items-center justify-center">
 			<button
 				class={[
-					"btn btn-xl flex items-center gap-2",
+					"btn flex items-center gap-2",
 					{ "bg-base-300": isPlaying, "btn-neutral": !isPlaying },
 				]}
 				onclick={() => {
@@ -133,10 +161,10 @@ const handleBeatUnitChange = (event: Event): void => {
 				}}
 			>
 				{#if isPlaying}
-					<Pause class="h-4 w-4" />
+					<Pause class="size-4" />
 					Stop
 				{:else}
-					<Play class="h-4 w-4" />
+					<Play class="size-4" />
 					{status.hasUserInteracted || !metronomeState.isPlaying
 						? "Start"
 						: "Join"}
@@ -146,13 +174,19 @@ const handleBeatUnitChange = (event: Event): void => {
 	</div>
 
 	<!-- Bottom bar -->
-	<div class="flex flex-1 flex-col items-stretch justify-end">
+	<div class="flex flex-1 flex-col items-stretch justify-end gap-8">
+		<JoinInfo />
 		<div class="flex justify-center">
 			<div class="flex flex-1 items-center">
 				<FollowerCount />
 			</div>
-			<NetworkingInfo />
-			<div class="z-10 flex flex-1 justify-end">
+
+			<div class="flex gap-2">
+				<JoinModal />
+				<LeaveModal />
+			</div>
+
+			<div class="flex flex-1 justify-end">
 				<DebugInfo />
 			</div>
 		</div>

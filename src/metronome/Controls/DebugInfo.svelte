@@ -19,11 +19,12 @@ const status = getStatus()
 let modal: HTMLDialogElement
 </script>
 
-<button class="btn btn-sm" onclick={() => modal.showModal()}>
-	<Braces class="h-4 w-4" />
+<button class="btn btn-sm btn-ghost" onclick={() => modal.showModal()}>
+	<Braces class="size-4" />
 </button>
 <dialog bind:this={modal} class="modal">
 	<div class="modal-box">
+		<h2 class="text-xl font-bold">Debug Info</h2>
 		<DebugString
 			status={{
 				peerConnected: status.peerConnected,
