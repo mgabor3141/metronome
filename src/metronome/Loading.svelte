@@ -9,9 +9,12 @@ const { children } = $props()
 </script>
 
 {#if !metronomeState?.bpm || !clock.synced}
-	<p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-		Synchronizing...
-	</p>
+	<div class="flex h-[100vh] flex-col justify-center">
+		<p class="flex items-center justify-center gap-3">
+			<span class="loading loading-spinner loading-lg"></span>
+			Synchronizing...
+		</p>
+	</div>
 {:else}
 	{@render children()}
 {/if}

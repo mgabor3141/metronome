@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@astrojs/svelte": "^7.0.6",
+		"@lucide/svelte": "^0.483.0",
 		"@tailwindcss/vite": "^4.0.14",
 		"astro": "^5.5.2",
 		"astro-bun-websocket": "^1.0.3",

@@ -4,6 +4,7 @@ import {
 	setMetronomeStateLocal,
 } from "../providers/MetronomeStateProvider.svelte"
 import { getStatus } from "../providers/StatusProvider.svelte"
+import { Play, Pause, Braces } from "@lucide/svelte"
 
 // UI constants
 const MIN_BPM = 40
@@ -15,9 +16,6 @@ const status = getStatus()
 const metronomeState = getMetronomeState()
 
 const isPlaying = $derived(metronomeState.isPlaying && status.hasUserInteracted)
-
-// UI-specific derived values
-const beatDurationMs = $derived(60000 / metronomeState.bpm)
 
 // Specific handlers for each input type
 const handleBpmChange = (event: Event): void => {
@@ -57,121 +55,101 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
-<div class="metronome-container mx-auto max-w-lg rounded-lg p-6 shadow-md">
-	<h1 class="mb-4 text-center text-2xl font-bold">Metronome</h1>
-
-	<div class="current-settings mb-6 rounded-md p-4">
-		<div class="mb-2 text-center text-4xl font-bold">
-			{metronomeState.bpm} BPM
-		</div>
-		<div class="text-center text-xl">
-			{metronomeState.timeSignature.beatsPerMeasure}/{metronomeState
-				.timeSignature.beatUnit}
-		</div>
-		<div class="mt-1 text-center text-sm text-gray-500">
-			Beat duration: {beatDurationMs.toFixed(2)}ms
-		</div>
+<div class="flex h-[100vh] flex-col gap-16 p-6 py-12 sm:p-12">
+	<div class="flex flex-1 flex-col items-center justify-end">
+		<h1 class="text-center text-4xl font-bold">Shared Metronome</h1>
 	</div>
 
-	<!-- Settings Subcomponent -->
-	<div class="settings-panel">
-		<h2 class="mb-3 text-lg font-semibold">Settings</h2>
-
-		<div class="mb-4">
-			<label for="bpm-input" class="mb-1 block text-sm font-medium">
-				Tempo (BPM)
-			</label>
-			<div class="flex items-center gap-3">
-				<input
-					id="bpm-input"
-					type="range"
-					min={MIN_BPM}
-					max={MAX_BPM}
-					value={metronomeState.bpm}
-					oninput={handleBpmChange}
-					class="flex-grow"
-				/>
+	<div
+		class="bg-base-200 mx-auto flex w-full max-w-md flex-col items-stretch gap-6 rounded-lg p-6"
+	>
+		<div class="flex flex-wrap items-center justify-between">
+			<div class="flex items-baseline gap-2 text-left text-2xl font-bold">
 				<input
 					type="number"
 					min={MIN_BPM}
 					max={MAX_BPM}
 					value={metronomeState.bpm}
 					oninput={handleBpmChange}
-					class="w-16 rounded border p-1 text-center"
+					class="input input-ghost w-12 min-w-0 p-0 text-left text-2xl"
 				/>
+				<label for="bpm-input">BPM</label>
+			</div>
+
+			<div class="time-signature-settings">
+				<div class="flex items-center gap-2">
+					<select
+						id="beats-per-measure"
+						value={metronomeState.timeSignature.beatsPerMeasure}
+						onchange={handleBeatsPerMeasureChange}
+						class="select w-16"
+					>
+						{#each Array.from({ length: MAX_BEATS_PER_MEASURE }, (_, i) => i + 1) as beats (beats)}
+							<option value={beats}>{beats}</option>
+						{/each}
+					</select>
+					<span class="text-xl">/</span>
+					<select
+						id="beat-unit"
+						value={metronomeState.timeSignature.beatUnit}
+						onchange={handleBeatUnitChange}
+						class="select w-16"
+					>
+						{#each VALID_BEAT_UNITS as unit (unit)}
+							<option value={unit}>{unit}</option>
+						{/each}
+					</select>
+				</div>
 			</div>
 		</div>
 
-		<div class="time-signature-settings">
-			<label for="beats-per-measure" class="mb-1 block text-sm font-medium">
-				Time Signature
-			</label>
-			<div class="flex items-center gap-2">
-				<select
-					id="beats-per-measure"
-					value={metronomeState.timeSignature.beatsPerMeasure}
-					onchange={handleBeatsPerMeasureChange}
-					class="rounded border p-1"
-				>
-					{#each Array.from({ length: MAX_BEATS_PER_MEASURE }, (_, i) => i + 1) as beats (beats)}
-						<option value={beats}>{beats}</option>
-					{/each}
-				</select>
-				<span class="text-xl">/</span>
-				<select
-					id="beat-unit"
-					value={metronomeState.timeSignature.beatUnit}
-					onchange={handleBeatUnitChange}
-					class="rounded border p-1"
-				>
-					{#each VALID_BEAT_UNITS as unit (unit)}
-						<option value={unit}>{unit}</option>
-					{/each}
-				</select>
-			</div>
+		<input
+			id="bpm-input"
+			type="range"
+			min={MIN_BPM}
+			max={MAX_BPM}
+			value={metronomeState.bpm}
+			oninput={handleBpmChange}
+			class="range w-full"
+		/>
+
+		<div class="flex items-center justify-center">
+			<button
+				class={[
+					"btn btn-xl flex items-center gap-2",
+					{ "bg-base-300": !isPlaying, "btn-neutral": isPlaying },
+				]}
+				onclick={() => {
+					const wasPlaying = isPlaying
+					status.hasUserInteracted = true
+					setMetronomeStateLocal(metronomeState, {
+						isPlaying: !wasPlaying,
+					})
+				}}
+			>
+				{#if isPlaying}
+					<Pause class="h-4 w-4" />
+					Stop
+				{:else}
+					<Play class="h-4 w-4" />
+					{status.hasUserInteracted || !metronomeState.isPlaying
+						? "Start"
+						: "Join"}
+				{/if}
+			</button>
 		</div>
 	</div>
 
-	<!-- Playback Controls -->
-	<div class="mt-6 flex flex-col items-center">
-		<button
-			class="btn"
-			onclick={() => {
-				const wasPlaying = isPlaying
-				status.hasUserInteracted = true
-				setMetronomeStateLocal(metronomeState, {
-					isPlaying: !wasPlaying,
-				})
-			}}
-		>
-			{#if isPlaying}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-				>
-					<rect x="6" y="4" width="3" height="12" rx="1" />
-					<rect x="11" y="4" width="3" height="12" rx="1" />
-				</svg>
-				Pause
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-				>
-					<path
-						fill-rule="evenodd"
-						d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				{status.hasUserInteracted || !metronomeState.isPlaying
-					? "Start"
-					: "Join"}
-			{/if}
-		</button>
+	<!-- Bottom bar -->
+	<div class="flex flex-1 flex-col items-stretch justify-end">
+		<div class="flex justify-center">
+			<div class="flex-1"></div>
+			<div>Join</div>
+			<div class="flex flex-1 justify-end">
+				<button class="btn btn-sm">
+					<Braces class="h-4 w-4" />
+				</button>
+			</div>
+		</div>
 	</div>
 </div>
