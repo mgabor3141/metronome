@@ -6,6 +6,7 @@ export const CLOCK_CONTEXT_KEY = Symbol("clock")
 export type ClockState = {
 	offset: number
 	synced: boolean
+	syncing: boolean
 	now: () => number
 }
 
@@ -35,6 +36,7 @@ let ts: TimeSyncInstance | undefined
 const clockState = $state<ClockState>({
 	offset: 0,
 	synced: false,
+	syncing: false,
 	now: () => {
 		if (!ts) throw new Error("Timesync not initialized")
 		return ts.now()
@@ -60,6 +62,7 @@ onMount(() => {
 
 	ts.on("sync", (state: unknown) => {
 		console.debug(`[TIME] Sync ${state as "start" | "end"}`)
+		clockState.syncing = state === "start"
 	})
 
 	ts.on("change", (offsetValue: unknown) => {

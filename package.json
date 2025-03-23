@@ -13,12 +13,15 @@
 	},
 	"dependencies": {
 		"@astrojs/svelte": "^7.0.6",
+		"@fontsource-variable/montserrat": "^5.2.5",
 		"@lucide/svelte": "^0.483.0",
+		"@number-flow/svelte": "^0.3.6",
 		"@tailwindcss/vite": "^4.0.14",
 		"astro": "^5.5.2",
 		"astro-bun-websocket": "^1.0.3",
 		"peerjs": "^1.5.4",
 		"svelte": "^5.23.0",
+		"svelte-qrcode": "^1.0.1",
 		"tailwindcss": "^4.0.14",
 		"timesync": "^1.0.11",
 		"tone": "^15.0.4",
@@ -50,6 +53,7 @@
 	"patchedDependencies": {
 		"tone@15.0.4": "patches/tone@15.0.4.patch",
 		"astro-bun-websocket@1.0.3": "patches/astro-bun-websocket@1.0.3.patch",
-		"timesync@1.0.11": "patches/timesync@1.0.11.patch"
+		"timesync@1.0.11": "patches/timesync@1.0.11.patch",
+		"qrious@4.0.2": "patches/qrious@4.0.2.patch"
 	}
 }

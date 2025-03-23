@@ -30,4 +30,8 @@ export default defineConfig({
 
 	// Enable server endpoints for API routes
 	output: "server",
+
+	devToolbar: {
+		enabled: false,
+	},
 })

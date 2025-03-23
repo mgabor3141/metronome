@@ -1,0 +1,21 @@
+diff --git a/dist/qrious.js b/dist/qrious.js
+index 4733bf33367395cdbde10d7d8c7e531b3de0f55d..4e8dccf8e0cd852833f2e22619c4f8a454083e58 100644
+--- a/dist/qrious.js
++++ b/dist/qrious.js
+@@ -329,11 +329,11 @@
+      */
+     getOffset: function(frame) {
+       var qrious = this.qrious;
+-      var padding = qrious.padding;
+-
+-      if (padding != null) {
+-        return padding;
+-      }
++      // var padding = qrious.padding;
++      //
++      // if (padding != null) {
++      //   return padding;
++      // }
+ 
+       var moduleSize = this.getModuleSize(frame);
+       var offset = Math.floor((qrious.size - (moduleSize * frame.width)) / 2);

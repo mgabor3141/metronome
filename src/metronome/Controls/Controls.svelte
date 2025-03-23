@@ -6,6 +6,8 @@ import {
 import { getStatus } from "../providers/StatusProvider.svelte"
 import { Play, Pause } from "@lucide/svelte"
 import DebugInfo from "./DebugInfo.svelte"
+import NetworkingInfo from "./NetworkingInfo.svelte"
+import FollowerCount from "./FollowerCount.svelte"
 
 // UI constants
 const MIN_BPM = 40
@@ -56,9 +58,11 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
-<div class="flex h-[100vh] flex-col gap-16 p-6 py-12 sm:p-12">
+<div class="flex h-[100dvh] flex-col gap-16 p-6 sm:p-12">
 	<div class="flex flex-1 flex-col items-center justify-end">
-		<h1 class="text-center text-4xl font-bold">Shared Metronome</h1>
+		<h1 class="font-title text-center text-4xl font-light tracking-tighter">
+			Network Metronome
+		</h1>
 	</div>
 
 	<div
@@ -111,14 +115,14 @@ const handleBeatUnitChange = (event: Event): void => {
 			max={MAX_BPM}
 			value={metronomeState.bpm}
 			oninput={handleBpmChange}
-			class="range w-full"
+			class="range range-accent w-full"
 		/>
 
 		<div class="flex items-center justify-center">
 			<button
 				class={[
 					"btn btn-xl flex items-center gap-2",
-					{ "bg-base-300": !isPlaying, "btn-neutral": isPlaying },
+					{ "bg-base-300": isPlaying, "btn-neutral": !isPlaying },
 				]}
 				onclick={() => {
 					const wasPlaying = isPlaying
@@ -144,9 +148,11 @@ const handleBeatUnitChange = (event: Event): void => {
 	<!-- Bottom bar -->
 	<div class="flex flex-1 flex-col items-stretch justify-end">
 		<div class="flex justify-center">
-			<div class="flex-1"></div>
-			<div>Join</div>
-			<div class="flex flex-1 justify-end">
+			<div class="flex flex-1 items-center">
+				<FollowerCount />
+			</div>
+			<NetworkingInfo />
+			<div class="z-10 flex flex-1 justify-end">
 				<DebugInfo />
 			</div>
 		</div>
