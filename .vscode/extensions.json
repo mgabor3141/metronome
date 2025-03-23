@@ -5,6 +5,7 @@
 		"esbenp.prettier-vscode",
 		"dbaeumer.vscode-eslint",
 		"bradlc.vscode-tailwindcss",
-		"nize.oklch-preview"
+		"nize.oklch-preview",
+		"ms-azuretools.vscode-docker"
 	]
 }

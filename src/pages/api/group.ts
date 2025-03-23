@@ -133,8 +133,12 @@ export const GET: APIRoute = (ctx) => {
 		let groupCode: string
 
 		socket.onmessage = async (event: MessageEvent<Blob>) => {
-			const message = JSON.parse(await event.data.text())
-			console.log("Received message:", message)
+			console.log("[WebSocket] Received event:", event)
+			const text = (
+				event.data.text ? await event.data.text() : event.data
+			) as string
+			const message = JSON.parse(text)
+			console.log("[WebSocket] Received message:", message)
 
 			if (message.type === "register") {
 				peerId = message.peerId
