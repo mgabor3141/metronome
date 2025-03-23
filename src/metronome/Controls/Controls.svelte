@@ -11,6 +11,7 @@ import Title from "./Title.svelte"
 import JoinInfo from "./JoinInfo.svelte"
 import JoinModal from "./JoinModal.svelte"
 import LeaveModal from "./LeaveModal.svelte"
+import { getClock } from "../providers/ClockProvider.svelte"
 // UI constants
 const MIN_BPM = 40
 const MAX_BPM = 240
@@ -19,7 +20,7 @@ const MAX_BEATS_PER_MEASURE = 12
 
 const status = getStatus()
 const metronomeState = getMetronomeState()
-
+const clockState = getClock()
 const isPlaying = $derived(metronomeState.isPlaying && status.hasUserInteracted)
 
 // Specific handlers for each input type
@@ -60,6 +61,17 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
+<div
+	class={[
+		"toast toast-top toast-center mx-auto transition-opacity duration-400",
+		{ "opacity-0": !clockState.syncing },
+	]}
+>
+	<div class="alert alert-info">
+		<span class="loading loading-spinner loading-md"></span>
+		<p>Synchronizing to reference clock</p>
+	</div>
+</div>
 <div class="flex h-[100dvh] flex-col gap-8 p-6 sm:p-12">
 	<div class="flex flex-1 flex-col items-center justify-end">
 		<Title />
@@ -68,7 +80,7 @@ const handleBeatUnitChange = (event: Event): void => {
 	<div
 		class="bg-base-200 mx-auto flex w-full max-w-md flex-col items-stretch gap-6 rounded-lg p-6"
 	>
-		<div class="flex items-center justify-center gap-2">
+		<div class="flex items-center gap-2">
 			<button
 				class="btn btn-sm btn-neutral"
 				onclick={() =>
@@ -84,14 +96,16 @@ const handleBeatUnitChange = (event: Event): void => {
 					})}>-5</button
 			>
 
-			<div class="mx-4 flex items-baseline gap-2 text-left text-2xl font-bold">
+			<div
+				class="mx-6 flex flex-1 items-baseline justify-center gap-2 text-left text-2xl font-bold"
+			>
 				<input
 					type="number"
 					min={MIN_BPM}
 					max={MAX_BPM}
 					value={metronomeState.bpm}
 					oninput={handleBpmChange}
-					class="input input-ghost w-12 min-w-0 p-0 text-left text-2xl"
+					class="input input-ghost bg-neutral w-12 min-w-0 [appearance:textfield] p-0 pl-1 text-left text-2xl [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 				/>
 				<label for="bpm-input">BPM</label>
 			</div>

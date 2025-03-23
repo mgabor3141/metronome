@@ -8,7 +8,7 @@ const groupState = getGroup()
 const url = `${window.location.origin}/?join=${groupState.groupCode}`
 </script>
 
-<div class="prose flex flex-col items-center gap-4 text-center">
+<div class="prose mx-auto flex flex-col items-center gap-4 text-center">
 	<div class="flex flex-col items-center">
 		<span>Join with Code</span>
 		<code class="bg-base-200 p-1 text-3xl font-bold"

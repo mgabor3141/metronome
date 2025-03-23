@@ -1,5 +1,5 @@
 <script lang="ts">
-import NumberFlow from "@number-flow/svelte"
+import { flip } from "svelte/animate"
 import { getGroup } from "../providers/GroupProvider.svelte"
 import { CircleHelp } from "@lucide/svelte"
 
@@ -9,7 +9,7 @@ const connectedFollowers = $derived(groupState.members.length - 1)
 let modal: HTMLDialogElement
 </script>
 
-<div class="prose">
+<div>
 	<h1 class="font-title text-center text-4xl font-light tracking-tighter">
 		Network Metronome
 	</h1>
@@ -20,11 +20,17 @@ let modal: HTMLDialogElement
 			{ "opacity-0": connectedFollowers === 0 },
 		]}
 	>
-		<button class="btn btn-ghost font-normal" onclick={() => modal.showModal()}>
+		<button
+			class={[
+				connectedFollowers !== 0 && "btn btn-ghost font-normal opacity-80",
+			]}
+			onclick={() => connectedFollowers !== 0 && modal.showModal()}
+		>
 			{#if groupState.isGroupLeader}
-				This device is the reference clock
+				<span transition:flip>This device is the reference clock</span>
 			{:else}
-				This device is following the reference clock
+				<span transition:flip>This device is following the reference clock</span
+				>
 			{/if}
 			<CircleHelp class="ml-2 size-4" /></button
 		>
@@ -44,8 +50,8 @@ let modal: HTMLDialogElement
 				{:else}
 					<h2 class="text-xl font-bold">Following Reference Clock</h2>
 					<p class="py-4">
-						This device will periodically update its metronome to match the
-						reference clock.
+						This device will periodically adjust playback to match the reference
+						clock.
 					</p>
 				{/if}
 			</div>
