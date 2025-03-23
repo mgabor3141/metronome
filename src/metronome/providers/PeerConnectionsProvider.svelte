@@ -64,6 +64,10 @@ const disconnectAll = (peer: Peer) => {
 		})
 }
 
+export const getPeersWithConnections = (peer: Peer): string[] => {
+	return Object.keys(getOpenConnections(peer))
+}
+
 const syncConnections = (peer: PeerContext, targets: string[]) => {
 	if (!peer.instance) {
 		throw new Error("Peer not initialized")

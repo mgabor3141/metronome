@@ -67,7 +67,7 @@ const handleBeatUnitChange = (event: Event): void => {
 		{ "opacity-0": !clockState.syncing },
 	]}
 >
-	<div class="alert alert-info">
+	<div class="alert">
 		<span class="loading loading-spinner loading-md"></span>
 		<p>Synchronizing to reference clock</p>
 	</div>

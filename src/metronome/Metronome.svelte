@@ -9,22 +9,39 @@ import Audio from "./Audio.svelte"
 import Controls from "./Controls/Controls.svelte"
 import Loading from "./Loading.svelte"
 import StatusProvider from "./providers/StatusProvider.svelte"
+
+let error: string | undefined = $state()
 </script>
 
-<StatusProvider>
-	<PeerProvider>
-		<GroupProvider>
-			<PeerConnectionsProvider>
-				<MetronomeStateProvider>
-					<MetronomeStateSync />
-					<ClockProvider>
-						<Loading>
-							<Controls />
-							<Audio />
-						</Loading>
-					</ClockProvider>
-				</MetronomeStateProvider>
-			</PeerConnectionsProvider>
-		</GroupProvider>
-	</PeerProvider>
-</StatusProvider>
+<svelte:window
+	onerror={(e) => (error = (e as unknown as ErrorEvent).message)}
+/>
+
+{#if error}
+	<div
+		class="mx-auto my-64 flex max-w-md flex-col items-center gap-2 text-center"
+	>
+		<p>An error occurred:</p>
+		<pre>{error}</pre>
+		<button class="btn" onclick={() => window.location.reload()}>Refresh</button
+		>
+	</div>
+{:else}
+	<StatusProvider>
+		<PeerProvider>
+			<GroupProvider>
+				<PeerConnectionsProvider>
+					<MetronomeStateProvider>
+						<MetronomeStateSync />
+						<ClockProvider>
+							<Loading>
+								<Controls />
+								<Audio />
+							</Loading>
+						</ClockProvider>
+					</MetronomeStateProvider>
+				</PeerConnectionsProvider>
+			</GroupProvider>
+		</PeerProvider>
+	</StatusProvider>
+{/if}

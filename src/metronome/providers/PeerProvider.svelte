@@ -61,13 +61,10 @@ export class PeerContext {
 			})
 			.on("close", () => {
 				console.log("[P2P] Connection closed", conn.peer)
-				this.availableConnections.splice(
-					this.availableConnections.indexOf(conn.peer),
-					1,
-				)
+				this.#availableConnections = getPeersWithConnections(this.#instance)
 			})
 			.on("error", (err) => {
-				console.error("Connection error", conn.peer, err)
+				console.error("[P2P] Connection error with", conn.peer, err)
 			})
 	}
 
@@ -107,6 +104,7 @@ export const getPeerContext = () => {
 import Peer from "peerjs"
 import type { DataConnection } from "peerjs"
 import { getStatus } from "./StatusProvider.svelte"
+import { getPeersWithConnections } from "./PeerConnectionsProvider.svelte"
 
 const status = getStatus()
 
@@ -126,7 +124,14 @@ onMount(() => {
 	})
 
 	peerContext.instance.on("error", (err) => {
-		console.error("PeerJS error:", err)
+		console.error("[P2P] PeerJS error:", err)
+		if (err.type !== "disconnected") {
+			throw new Error("PeerJS error: " + err.message, {
+				cause: err,
+			})
+		} else {
+			console.warn("[P2P] PeerJS error:", err)
+		}
 	})
 
 	peerContext.instance.on("disconnected", () => {
