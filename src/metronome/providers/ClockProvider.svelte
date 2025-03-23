@@ -38,8 +38,8 @@ const clockState = $state<ClockState>({
 	synced: false,
 	syncing: false,
 	now: () => {
-		if (!ts) throw new Error("Timesync not initialized")
-		return ts.now()
+		if (!ts) console.warn("[TIME] Timesync not initialized")
+		return ts?.now() ?? performance.timeOrigin + performance.now()
 	},
 })
 
