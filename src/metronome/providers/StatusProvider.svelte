@@ -1,6 +1,5 @@
 <script lang="ts" module>
 import { getContext } from "svelte"
-import DebugString from "../../components/DebugString.svelte"
 
 const STATUS_CONTEXT_KEY = Symbol("status")
 
@@ -33,9 +32,3 @@ const { children } = $props()
 </script>
 
 {@render children()}
-<DebugString
-	peerConnected={status.peerConnected}
-	serverConnected={status.serverConnected}
-	connected={status.connected}
-	hasUserInteracted={status.hasUserInteracted}
-/>

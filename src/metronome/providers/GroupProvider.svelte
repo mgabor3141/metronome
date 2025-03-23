@@ -1,9 +1,7 @@
-<!-- @hmr:keep-all -->
 <script lang="ts" module>
 import { getContext, onDestroy, onMount, setContext } from "svelte"
 import { getPeerContext } from "./PeerProvider.svelte"
 import { getGroupCode, saveGroupCode } from "../../utils/code-utils"
-import DebugString from "../../components/DebugString.svelte"
 
 const GROUP_CONTEXT_KEY = Symbol("group")
 const GROUP_URL_PARAM = "join"
@@ -143,4 +141,3 @@ const { children } = $props()
 </script>
 
 {@render children()}
-<DebugString {groupState} />

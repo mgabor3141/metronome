@@ -4,7 +4,8 @@ import {
 	setMetronomeStateLocal,
 } from "../providers/MetronomeStateProvider.svelte"
 import { getStatus } from "../providers/StatusProvider.svelte"
-import { Play, Pause, Braces } from "@lucide/svelte"
+import { Play, Pause } from "@lucide/svelte"
+import DebugInfo from "./DebugInfo.svelte"
 
 // UI constants
 const MIN_BPM = 40
@@ -146,9 +147,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			<div class="flex-1"></div>
 			<div>Join</div>
 			<div class="flex flex-1 justify-end">
-				<button class="btn btn-sm">
-					<Braces class="h-4 w-4" />
-				</button>
+				<DebugInfo />
 			</div>
 		</div>
 	</div>

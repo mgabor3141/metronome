@@ -1,4 +1,3 @@
-<!-- @hmr:keep-all -->
 <script lang="ts" module>
 import { getContext, onDestroy, onMount, setContext } from "svelte"
 
@@ -107,7 +106,6 @@ export const getPeerContext = () => {
 <script lang="ts">
 import Peer from "peerjs"
 import type { DataConnection } from "peerjs"
-import DebugString from "../../components/DebugString.svelte"
 import { getStatus } from "./StatusProvider.svelte"
 
 const status = getStatus()
@@ -147,7 +145,3 @@ const { children } = $props()
 </script>
 
 {@render children()}
-<DebugString
-	peerId={peerContext.id}
-	openConnections={peerContext.availableConnections}
-/>

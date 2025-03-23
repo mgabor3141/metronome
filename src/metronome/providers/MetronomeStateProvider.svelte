@@ -1,4 +1,3 @@
-<!-- @hmr:keep-all -->
 <script lang="ts" module>
 import { getContext, onDestroy, setContext } from "svelte"
 
@@ -41,7 +40,6 @@ export const setMetronomeStateLocal = (
 </script>
 
 <script lang="ts">
-import DebugString from "../../components/DebugString.svelte"
 import { getGroup } from "./GroupProvider.svelte"
 import { getPeerConnections, send } from "./PeerConnectionsProvider.svelte"
 import { getPeerContext, type PeerDataCallback } from "./PeerProvider.svelte"
@@ -118,4 +116,3 @@ const { children } = $props()
 </script>
 
 {@render children()}
-<DebugString {metronomeState} />

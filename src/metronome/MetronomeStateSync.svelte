@@ -1,4 +1,3 @@
-<!-- @hmr:keep-all -->
 <script lang="ts">
 import { onDestroy } from "svelte"
 import { broadcast } from "./providers/PeerConnectionsProvider.svelte"

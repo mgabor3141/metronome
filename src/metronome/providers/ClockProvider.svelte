@@ -23,7 +23,6 @@ import {
 	getPeerConnections,
 	send,
 } from "./PeerConnectionsProvider.svelte"
-import DebugString from "../../components/DebugString.svelte"
 import { getStatus } from "./StatusProvider.svelte"
 
 const status = getStatus()
@@ -121,4 +120,3 @@ const { children } = $props()
 </script>
 
 {@render children()}
-<DebugString {clockState} />

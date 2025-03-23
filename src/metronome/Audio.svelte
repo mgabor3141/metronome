@@ -1,4 +1,3 @@
-<!-- @hmr:keep-all -->
 <script lang="ts">
 /**
  * MetronomeAudio component that handles audio playback using Tone.js
