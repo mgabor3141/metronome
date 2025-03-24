@@ -11,6 +11,7 @@
         "@tailwindcss/vite": "^4.0.14",
         "astro": "^5.5.2",
         "astro-bun-websocket": "^1.0.3",
+        "no-sleep-app": "^1.1.2",
         "peerjs": "^1.5.4",
         "runed": "^0.25.0",
         "svelte": "^5.23.0",
@@ -926,6 +927,8 @@
     "nlcst-to-string": ["nlcst-to-string@4.0.0", "", { "dependencies": { "@types/nlcst": "^2.0.0" } }, "sha512-YKLBCcUYKAg0FNlOBT6aI91qFmSiFKiluk655WzPF+DDMA02qIyy8uiRqI8QXtcFpEvll12LpL5MXqEmAZ+dcA=="],
 
     "no-case": ["no-case@3.0.4", "", { "dependencies": { "lower-case": "^2.0.2", "tslib": "^2.0.3" } }, "sha512-fgAN3jGAh+RoxUGZHTSOLJIqUc2wmoBwGR4tbpNAKmmovFoWq0OdRkb0VkldReO2a2iBT/OEulG9XSUc10r3zg=="],
+
+    "no-sleep-app": ["no-sleep-app@1.1.2", "", {}, "sha512-4bmETqRzb5i4sHqzFaZRF0q/57zU306giAQO7LED3SYwCXlTLAKiZGtOdxqgOuQC4fDCqpGkvPY2WB+dLV7PPw=="],
 
     "node-fetch-native": ["node-fetch-native@1.6.6", "", {}, "sha512-8Mc2HhqPdlIfedsuZoc3yioPuzp6b+L5jRCRY1QzuWZh2EGJVQrGppC6V6cF0bLdbW0+O2YpqCA25aF/1lvipQ=="],
 

@@ -11,6 +11,8 @@ import JoinInfo from "./JoinInfo.svelte"
 import JoinModal from "./JoinModal.svelte"
 import LeaveModal from "./LeaveModal.svelte"
 import SyncInfo from "./SyncInfo.svelte"
+// @ts-expect-error no-sleep-app is not typed
+import NoSleepApp from "no-sleep-app"
 
 // UI constants
 const MIN_BPM = 40
@@ -21,6 +23,8 @@ const MAX_BEATS_PER_MEASURE = 12
 const status = getStatus()
 const metronomeState = getMetronomeState()
 const isPlaying = $derived(metronomeState.isPlaying && status.hasUserInteracted)
+
+const noSleep = new NoSleepApp()
 
 // Specific handlers for each input type
 const handleBpmChange = (event: Event): void => {
@@ -59,6 +63,8 @@ const handleBeatUnitChange = (event: Event): void => {
 	}
 }
 </script>
+
+<svelte:window onclick={() => noSleep.enable()} />
 
 <div class="flex h-[100dvh] flex-col gap-6 p-6 sm:p-12">
 	<div class="flex flex-1 flex-col items-center justify-end gap-4">
