@@ -85,7 +85,6 @@ onMount(() => {
 	// Handle incoming messages
 	websocket.onmessage = async (event) => {
 		const message: GroupStateUpdate = JSON.parse(event.data)
-		console.debug("[SERVER] Received WebSocket message:", message)
 
 		// Handle group updates
 		if (message.type === "groupUpdate") {

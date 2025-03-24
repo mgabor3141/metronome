@@ -35,7 +35,7 @@ export type P2PMessage<T> = {
 } & T
 
 export const broadcast = <T,>(peer: Peer, data: P2PMessage<T>) => {
-	console.debug("[P2P] Broadcasting:", data)
+	console.debug("[P2P] Broadcasting:", { ...data })
 	const connections = getOpenConnections(peer)
 	for (const conn of Object.values(connections)) {
 		conn.send(data)
@@ -43,7 +43,6 @@ export const broadcast = <T,>(peer: Peer, data: P2PMessage<T>) => {
 }
 
 export const send = <T,>(peer: Peer, data: P2PMessage<T>, target: string) => {
-	console.debug("[P2P] Sending to", target, data)
 	const allConnections = peer.connections as Record<string, DataConnection[]>
 
 	const conn = allConnections[target]?.find((conn) => conn.open)

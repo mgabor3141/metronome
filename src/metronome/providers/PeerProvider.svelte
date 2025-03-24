@@ -47,8 +47,6 @@ export class PeerContext {
 				}
 			})
 			.on("data", (data) => {
-				console.debug("[P2P] Received from", conn.peer, data)
-
 				const message = data as { method?: P2PMessageType; result?: unknown }
 
 				if (message.method) {

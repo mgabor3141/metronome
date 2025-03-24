@@ -110,16 +110,20 @@ const updatePlaybackWithState = async (
 	part.start(0)
 
 	const START_DELAY = 0.1
+	const LOOKAHEAD = Tone.getContext().lookAhead
+	const START_DELAY_WITH_LOOKAHEAD = START_DELAY + LOOKAHEAD
+
+	const measureLengthSeconds = transport.toSeconds("1m")
 
 	if (state.referenceTime) {
 		// If we have a reference time, we adjust to it
 		const transportOffset = getTransportPositionSeconds({
 			currentTime: clock.now(),
 			referenceTime: state.referenceTime,
-			measureLengthSeconds: transport.toSeconds("1m"),
+			measureLengthSeconds,
 			optionalStartDelaySeconds: isStarting
-				? START_DELAY + Tone.getContext().lookAhead
-				: Tone.getContext().lookAhead,
+				? START_DELAY_WITH_LOOKAHEAD
+				: LOOKAHEAD,
 		})
 
 		if (isStarting) {
@@ -134,7 +138,7 @@ const updatePlaybackWithState = async (
 			metronomeState.referenceTime = getReferenceTime({
 				currentTime: clock.now(),
 				transportSeconds: 0,
-				optionalStartDelaySeconds: START_DELAY + Tone.getContext().lookAhead,
+				optionalStartDelaySeconds: START_DELAY_WITH_LOOKAHEAD,
 			})
 
 			transport.start(`+${START_DELAY}`, 0)
@@ -142,8 +146,8 @@ const updatePlaybackWithState = async (
 			// If we don't have a reference time, and we are playing
 			metronomeState.referenceTime = getReferenceTime({
 				currentTime: clock.now(),
-				transportSeconds: transport.progress * transport.toSeconds("1m"),
-				optionalStartDelaySeconds: Tone.getContext().lookAhead,
+				transportSeconds: transport.progress * measureLengthSeconds,
+				optionalStartDelaySeconds: LOOKAHEAD,
 			})
 		}
 	}
