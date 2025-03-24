@@ -7,7 +7,12 @@ const groupState = getGroup()
 const connectedFollowers = $derived(groupState.members.length - 1)
 </script>
 
-<div class="tooltip tooltip-right" data-tip={`${connectedFollowers} connected`}>
+<div
+	class="tooltip tooltip-right"
+	data-tip={connectedFollowers === 0
+		? "No devices connected"
+		: `${connectedFollowers} other device${connectedFollowers === 1 ? "" : "s"}`}
+>
 	<div class="flex items-center gap-2">
 		<UserRound class="size-4" />
 		<NumberFlow
