@@ -13,6 +13,7 @@ import { deepEqual } from "../utils/object-utils"
 import { getMetronomeState } from "./providers/MetronomeStateProvider.svelte"
 import { getClock } from "./providers/ClockProvider.svelte"
 import { getStatus } from "./providers/StatusProvider.svelte"
+import { onDestroy } from "svelte"
 
 const status = getStatus()
 const metronomeState = getMetronomeState()
@@ -171,5 +172,9 @@ $effect(() => {
 		}
 		lastKnownTimingOffset = clock.offset
 	}
+})
+
+onDestroy(() => {
+	Tone.getTransport().stop()
 })
 </script>

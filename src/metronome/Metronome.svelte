@@ -13,9 +13,9 @@ import StatusProvider from "./providers/StatusProvider.svelte"
 let error: string | undefined = $state()
 </script>
 
-<svelte:window
+<!-- <svelte:window
 	onerror={(e) => (error = (e as unknown as ErrorEvent).message)}
-/>
+/> -->
 
 {#if error}
 	<div

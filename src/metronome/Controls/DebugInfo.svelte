@@ -51,9 +51,9 @@ $effect(() => {
 	<div class="modal-box">
 		<h2 class="text-xl font-bold">Debug Info</h2>
 		<p>
-			{#if clockState.synced}Synced t{:else}T{/if}ime:
-			<code>{now} (Δ{clockState.offset.toFixed(6)}ms)</code>
+			{#if clockState.synced}Synced t{:else}T{/if}ime: <code>{now}</code>
 		</p>
+		<p>Offset: {clockState.offset}ms</p>
 		<DebugString
 			status={{
 				peerConnected: status.peerConnected,

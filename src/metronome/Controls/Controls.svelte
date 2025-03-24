@@ -72,7 +72,7 @@ const handleBeatUnitChange = (event: Event): void => {
 		<p>Synchronizing to reference clock</p>
 	</div>
 </div>
-<div class="flex h-[100dvh] flex-col gap-8 p-6 sm:p-12">
+<div class="flex h-[100dvh] flex-col gap-6 p-6 sm:p-12">
 	<div class="flex flex-1 flex-col items-center justify-end">
 		<Title />
 	</div>
@@ -97,7 +97,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			>
 
 			<div
-				class="mx-6 flex flex-1 items-baseline justify-center gap-2 text-left text-2xl font-bold"
+				class="flex flex-1 flex-wrap items-baseline justify-center gap-2 text-left text-2xl font-bold"
 			>
 				<input
 					type="number"
@@ -105,7 +105,7 @@ const handleBeatUnitChange = (event: Event): void => {
 					max={MAX_BPM}
 					value={metronomeState.bpm}
 					oninput={handleBpmChange}
-					class="input input-ghost bg-neutral w-12 min-w-0 [appearance:textfield] p-0 pl-1 text-left text-2xl [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					class="input input-ghost bg-neutral w-16 min-w-0 [appearance:textfield] p-0 pl-2 text-left text-2xl [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 				/>
 				<label for="bpm-input">BPM</label>
 			</div>
