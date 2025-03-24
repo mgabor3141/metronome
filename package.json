@@ -21,6 +21,7 @@
 		"astro": "^5.5.2",
 		"astro-bun-websocket": "^1.0.3",
 		"peerjs": "^1.5.4",
+		"runed": "^0.25.0",
 		"svelte": "^5.23.0",
 		"svelte-qrcode": "^1.0.1",
 		"tailwindcss": "^4.0.14",

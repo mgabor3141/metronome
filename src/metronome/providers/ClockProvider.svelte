@@ -1,22 +1,78 @@
 <script lang="ts" module>
 import { getContext, setContext } from "svelte"
+import { type PeerContext } from "./PeerProvider.svelte"
+
+import { PersistedState } from "runed"
 
 export const CLOCK_CONTEXT_KEY = Symbol("clock")
 
-export type ClockState = {
-	offset: number
-	synced: boolean
-	syncing: boolean
-	now: () => number
-}
+export const getClock = () => getContext<Clock>(CLOCK_CONTEXT_KEY)
 
-export const getClock = () => getContext<ClockState>(CLOCK_CONTEXT_KEY)
+export class Clock {
+	syncOffset = $state(0)
+	#manualOffset = new PersistedState("manual-offset", 0)
+	get manualOffset() {
+		return this.#manualOffset.current
+	}
+	set manualOffset(value: number) {
+		this.#manualOffset.current = value
+	}
+	offset = $derived(this.syncOffset + this.manualOffset)
+	synced = $state(false)
+	syncing = $state(false)
+
+	ts: TimeSyncInstance = timesync.create({
+		peers: [],
+		repeat: 8,
+		interval: null,
+		now: () => performance.timeOrigin + performance.now(),
+	})
+	peer: PeerContext
+
+	now(): number {
+		if (!this.ts) console.warn("[TIME] Timesync not initialized")
+		return this.ts.now() + this.manualOffset
+	}
+
+	constructor(peer: PeerContext) {
+		this.peer = peer
+		this.ts.send = async (id: string, data: unknown) => {
+			send(peer.instance, data as P2PMessage<unknown>, id)
+		}
+
+		this.ts.on("sync", (state: unknown) => {
+			console.debug(`[TIME] Sync ${state as "start" | "end"}`)
+			this.syncing = state === "start"
+		})
+
+		this.ts.on("change", (offsetValue: unknown) => {
+			const newOffset = offsetValue as number
+			console.log(`[TIME] Wall clock offset changed: ${newOffset.toFixed(4)}ms`)
+			this.synced = true
+			this.syncOffset = newOffset
+		})
+
+		this.ts.on("error", (error: unknown) => {
+			console.error("[TIME] Timesync error:", error)
+		})
+
+		peer.subscribe("timesync", this.handler)
+	}
+
+	handler: PeerDataCallback<unknown> = (_, from, data) => {
+		this.ts.receive(from, data)
+	}
+
+	unsubscribe() {
+		this.peer.unsubscribe("timesync", this.handler)
+	}
+}
 </script>
 
 <script lang="ts">
 import * as timesync from "timesync"
 import type { TimeSyncInstance } from "timesync"
-import { onDestroy, onMount } from "svelte"
+import { onDestroy } from "svelte"
 import { getGroup } from "./GroupProvider.svelte"
 import { getPeerContext, type PeerDataCallback } from "./PeerProvider.svelte"
 import {
@@ -31,91 +87,45 @@ const peer = getPeerContext()
 const groupState = getGroup()
 const peerConnections = getPeerConnections()
 
-let ts: TimeSyncInstance | undefined
+const clock = new Clock(peer)
 
-const clockState = $state<ClockState>({
-	offset: 0,
-	synced: false,
-	syncing: false,
-	now: () => {
-		if (!ts) console.warn("[TIME] Timesync not initialized")
-		return ts?.now() ?? performance.timeOrigin + performance.now()
-	},
-})
-
-setContext(CLOCK_CONTEXT_KEY, clockState)
+setContext(CLOCK_CONTEXT_KEY, clock)
 
 let syncInterval = $state<Timer>()
-let handler: PeerDataCallback<unknown>
-
-onMount(() => {
-	ts = timesync.create({
-		peers: [],
-		repeat: 8,
-		interval: null,
-		now: () => performance.timeOrigin + performance.now(),
-	})
-
-	ts.send = async (id: string, data: unknown) => {
-		send(peer.instance, data as P2PMessage<unknown>, id)
-	}
-
-	ts.on("sync", (state: unknown) => {
-		console.debug(`[TIME] Sync ${state as "start" | "end"}`)
-		clockState.syncing = state === "start"
-	})
-
-	ts.on("change", (offsetValue: unknown) => {
-		const newOffset = offsetValue as number
-		console.log(`[TIME] Wall clock offset changed: ${newOffset.toFixed(4)}ms`)
-		clockState.synced = true
-		clockState.offset = newOffset
-	})
-
-	ts.on("error", (error: unknown) => {
-		console.error("[TIME] Timesync error:", error)
-	})
-
-	handler = (_, from, data) => {
-		ts?.receive(from, data)
-	}
-
-	peer.subscribe("timesync", handler)
-})
 
 onDestroy(() => {
-	ts?.destroy()
-	peer.unsubscribe("timesync", handler)
+	clock.ts.destroy()
+	clock.unsubscribe()
 	clearInterval(syncInterval)
 	syncInterval = undefined
 })
 
 $effect(() => {
-	if (!ts) throw new Error("Timesync not initialized")
+	if (!clock.ts) throw new Error("Timesync not initialized")
 
 	if (groupState.isGroupLeader) {
 		// Leader syncs with noone
-		ts.options.peers = []
-		clockState.synced = true
+		clock.ts.options.peers = []
+		clock.synced = true
 		return
 	}
 
-	ts.options.peers = [groupState.leader]
+	clock.ts.options.peers = [groupState.leader]
 
 	const sync = () => {
-		if (!ts) throw new Error("Timesync not initialized")
+		if (!clock.ts) throw new Error("Timesync not initialized")
 		if (!status.connected || !peerConnections.live) {
 			console.log("[TIME] Not connected or peer not live, skipping sync")
 			return
 		}
-		ts.sync()
+		clock.ts.sync()
 	}
 
 	if (!syncInterval && status.connected && peerConnections.live) {
 		sync()
 		syncInterval = setInterval(() => {
 			sync()
-		}, 30_000)
+		}, 60_000)
 	}
 })
 

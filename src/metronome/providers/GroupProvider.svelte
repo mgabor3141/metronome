@@ -126,9 +126,6 @@ $effect(() => {
 		// Check if we have a stored group code
 		const storedGroupCode = getGroupCode()
 
-		console.log("urlGroupCode", urlGroupCode)
-		console.log("storedGroupCode", storedGroupCode)
-
 		websocket?.send(
 			JSON.stringify({
 				type: "register",

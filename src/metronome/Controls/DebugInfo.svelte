@@ -66,7 +66,14 @@ $effect(() => {
 				openConnections: peerContext.availableConnections,
 				allConnected: peerConnections.live,
 			}}
-			{clockState}
+			clock={{
+				syncOffset: clockState.syncOffset,
+				manualOffset: clockState.manualOffset,
+				offset: clockState.offset,
+				synced: clockState.synced,
+				syncing: clockState.syncing,
+				ts: clockState.ts,
+			}}
 			{metronomeState}
 		/>
 		<form method="dialog">

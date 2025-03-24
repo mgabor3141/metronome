@@ -7,11 +7,11 @@ import { getStatus } from "../providers/StatusProvider.svelte"
 import { Play, Pause } from "@lucide/svelte"
 import DebugInfo from "./DebugInfo.svelte"
 import FollowerCount from "./FollowerCount.svelte"
-import Title from "./Title.svelte"
 import JoinInfo from "./JoinInfo.svelte"
 import JoinModal from "./JoinModal.svelte"
 import LeaveModal from "./LeaveModal.svelte"
-import { getClock } from "../providers/ClockProvider.svelte"
+import SyncInfo from "./SyncInfo.svelte"
+
 // UI constants
 const MIN_BPM = 40
 const MAX_BPM = 240
@@ -20,7 +20,6 @@ const MAX_BEATS_PER_MEASURE = 12
 
 const status = getStatus()
 const metronomeState = getMetronomeState()
-const clockState = getClock()
 const isPlaying = $derived(metronomeState.isPlaying && status.hasUserInteracted)
 
 // Specific handlers for each input type
@@ -61,20 +60,12 @@ const handleBeatUnitChange = (event: Event): void => {
 }
 </script>
 
-<div
-	class={[
-		"toast toast-top toast-center mx-auto transition-opacity duration-400",
-		{ "opacity-0": !clockState.syncing },
-	]}
->
-	<div class="alert">
-		<span class="loading loading-spinner loading-md"></span>
-		<p>Synchronizing to reference clock</p>
-	</div>
-</div>
 <div class="flex h-[100dvh] flex-col gap-6 p-6 sm:p-12">
-	<div class="flex flex-1 flex-col items-center justify-end">
-		<Title />
+	<div class="flex flex-1 flex-col items-center justify-end gap-4">
+		<h1 class="font-title text-center text-4xl font-light tracking-tighter">
+			Network Metronome
+		</h1>
+		<SyncInfo />
 	</div>
 
 	<div
@@ -101,6 +92,7 @@ const handleBeatUnitChange = (event: Event): void => {
 			>
 				<input
 					type="number"
+					id="bpm-input"
 					min={MIN_BPM}
 					max={MAX_BPM}
 					value={metronomeState.bpm}
